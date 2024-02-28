@@ -41,9 +41,9 @@ along with GCC; see the file COPYING3.  If not see
 #undef  CC1PLUS_SPEC
 #define CC1PLUS_SPEC                                    \
   "%(cc1) "                                             \
-  "%{!frtti:-fno-rtti} "                                \
+  "%{!frtti:-frtti} "                                \
   "%{!fenforce-eh-specs:-fno-enforce-eh-specs} "        \
-  "%{!fexceptions:-fno-exceptions} "
+  "%{!fexceptions:-fexceptions} "
 
 #define ASM_RELAX_SPEC                          \
   "%{mrelax:--mlink-relax} "
