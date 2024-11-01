@@ -28,6 +28,16 @@
 #undef STRING_LIMIT
 #define STRING_LIMIT ((unsigned) 64)
 
+#undef  ASM_DECLARE_FUNCTION_NAME
+#define ASM_DECLARE_FUNCTION_NAME avr_asm_declare_function_name
+#undef  ASM_DECLARE_FUNCTION_SIZE
+#define ASM_DECLARE_FUNCTION_SIZE(FILE, FNAME, DECL)     \
+  do                       \
+    {                      \
+      AVR_OUTPUT_FN_UNWIND (FILE, FALSE);       \
+      if (!flag_inhibit_size_directive)            \
+   ASM_OUTPUT_MEASURED_SIZE (FILE, FNAME);         \
+    }                      \
+  while (0)
 /* Be conservative in crtstuff.c.  */
-#undef INIT_SECTION_ASM_OP
-#undef FINI_SECTION_ASM_OP
+

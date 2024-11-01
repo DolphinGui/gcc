@@ -1486,6 +1486,271 @@ avr_set_current_function (tree decl)
 }
 
 
+/* Implement ASM_DECLARE_FUNCTION_NAME on AVR */
+
+void
+avr_asm_declare_function_name (FILE *file, const char *name, tree)
+{
+  ASM_OUTPUT_TYPE_DIRECTIVE (file, name, "function");
+  ASM_OUTPUT_LABEL (file, name);
+
+  AVR_OUTPUT_FN_UNWIND (file, TRUE);
+}
+
+
+/* Emit unwind information for AVR */
+void
+avr_output_fn_unwind (FILE * f, bool prologue)
+{
+  if (avr_except_unwind_info (&global_options) != UI_TARGET)
+    return;
+
+  if (prologue){
+     /* If this function will never be unwound, then mark it as such.
+         The same condition is used in arm_unwind_emit to suppress
+   the frame annotations.  */
+      if (!(flag_unwind_tables || crtl->uses_eh_lsda)
+    && (TREE_NOTHROW (current_function_decl)
+        || crtl->all_throwers_are_sibcalls))
+  fputs("\t.cantunwind\n", f);
+      fputs ("\t.fnstart\n", f);}
+  else
+    {
+     
+
+      fputs ("\t.fnend\n", f);
+    }
+}
+
+/*  Emit unwind directives for a SET.  */
+
+static void
+avr_unwind_emit_set (FILE * out_file, rtx p)
+{
+  rtx e0;
+  rtx e1;
+  unsigned reg;
+
+  e0 = XEXP (p, 0);
+  e1 = XEXP (p, 1);
+  switch (GET_CODE (e0))
+  {
+    case MEM:
+      /* Pushing a single register.  */
+      if (GET_CODE (XEXP (e0, 0)) != POST_DEC
+        || !REG_P (XEXP (XEXP (e0, 0), 0))
+        || REGNO (XEXP (XEXP (e0, 0), 0)) != REG_SP)
+          abort ();
+
+      asm_fprintf (out_file, "\t.save %R%u\n", REGNO (e1));
+      // asm_fprintf(out_file, "%R%u\n", REGNO (e1));
+          break;
+
+    case REG:
+      if (REGNO (e0) == REG_SP)
+      {
+        /* A stack increment.  */
+        if (GET_CODE (e1) != PLUS
+            || !REG_P (XEXP (e1, 0))
+            || REGNO (XEXP (e1, 0)) != REG_SP
+            || !CONST_INT_P (XEXP (e1, 1)))
+          abort ();
+
+        asm_fprintf (out_file, "\t.pad %wd\n",
+               -INTVAL (XEXP (e1, 1)));
+      }
+      else if (REGNO (e0) == HARD_FRAME_POINTER_REGNUM)
+      {
+        HOST_WIDE_INT offset;
+
+        if (GET_CODE (e1) == PLUS)
+          {
+            if (!REG_P (XEXP (e1, 0))
+              || !CONST_INT_P (XEXP (e1, 1)))
+              abort ();
+            reg = REGNO (XEXP (e1, 0));
+            offset = INTVAL (XEXP (e1, 1));
+            asm_fprintf (out_file, "\t.setfp %r, %r, #%wd\n",
+             HARD_FRAME_POINTER_REGNUM, reg,
+             offset);
+          }
+        else if (REG_P (e1))
+          {
+            reg = REGNO (e1);
+            asm_fprintf (out_file, "\t.setfp %r, %r\n",
+             HARD_FRAME_POINTER_REGNUM, reg);
+          }
+        else
+          abort ();
+      }
+      else if (REG_P (e1) && REGNO (e1) == REG_SP)
+      {
+        /* Move from sp to reg.  */
+        asm_fprintf (out_file, "\t.movsp %r\n", REGNO (e0));
+      }
+      else if (GET_CODE (e1) == PLUS
+        && REG_P (XEXP (e1, 0))
+        && REGNO (XEXP (e1, 0)) == REG_SP
+        && CONST_INT_P (XEXP (e1, 1)))
+      {
+        /* Set reg to offset from sp.  */
+        asm_fprintf (out_file, "\t.movsp %r, #%d\n",
+               REGNO (e0), (int)INTVAL(XEXP (e1, 1)));
+      }
+      else
+        abort ();
+      break;
+
+    default:
+      abort ();
+  }
+}
+
+
+
+/* This function includes a lot of defensive programming, which
+   really should be moved to a unit test out of the main program. */
+static void
+avr_unwind_emit (FILE * out_file, rtx_insn *insn)
+{
+  rtx note, pat;
+  bool handled_one = false;
+  int last_offset = 1;
+
+  if (avr_except_unwind_info (&global_options) != UI_TARGET)
+    return;
+
+  if (!(flag_unwind_tables || crtl->uses_eh_lsda)
+      && (TREE_NOTHROW (current_function_decl)
+    || crtl->all_throwers_are_sibcalls))
+    return;
+
+  if (NOTE_P (insn) || !RTX_FRAME_RELATED_P (insn))
+    return;
+
+  for (note = REG_NOTES (insn); note ; note = XEXP (note, 1))
+    {
+      switch (REG_NOTE_KIND (note))
+  {
+  case REG_FRAME_RELATED_EXPR:
+    pat = XEXP (note, 0);
+    goto found;
+
+  case REG_CFA_REGISTER:
+    pat = XEXP (note, 0);
+    if (pat == NULL)
+      {
+        pat = PATTERN (insn);
+        if (GET_CODE (pat) == PARALLEL)
+          pat = XVECEXP (pat, 0, 0);
+      }
+
+    /* Only emitted for IS_STACKALIGN re-alignment.  */
+    {
+      rtx dest, src;
+      unsigned reg;
+
+      src = SET_SRC (pat);
+      dest = SET_DEST (pat);
+
+      gcc_assert (src == stack_pointer_rtx);
+      reg = REGNO (dest);
+
+        asm_fprintf (out_file, "\t.unwind_raw 0, 0x%x @ vsp = r%d\n",
+         reg + 0x90, reg);
+    }
+    handled_one = true;
+    break;
+
+  /* The INSN is generated in epilogue.  It is set as RTX_FRAME_RELATED_P
+     to get correct dwarf information for shrink-wrap.  We should not
+     emit unwind information for it because these are used either for
+     pretend arguments or notes to adjust sp and restore registers from
+     stack.  */
+  case REG_CFA_ADJUST_CFA:
+    {
+      pat = XEXP(note, 0);
+      if(GET_CODE(pat) != SET)
+        gcc_unreachable();
+      // r28 is literally the only base pointer allowed,
+      // and because of how AVR does things a base pointer
+      // is always necessary when adjusting the sp, so
+      // this is always true
+      asm_fprintf (out_file, "\t.setfp 28\n");
+
+      rtx e1 = XEXP(pat, 1);
+      if(GET_CODE(e1) != PLUS)
+        return;
+      rtx e1_1 = XEXP(e1, 1);
+      long stack_size = XINT(e1_1, 0);
+      if(stack_size > 0)
+        gcc_unreachable();
+      asm_fprintf (out_file, "\t.pad %ld\n", -stack_size + (last_offset-1));
+      return;
+    }
+  case REG_CFA_OFFSET:{
+      pat = XEXP(note, 0);
+      if(GET_CODE (pat) != SET)
+        gcc_unreachable();
+      rtx e0 = XEXP(pat, 0);
+      rtx e0_0 = XEXP(e0, 0);
+      int offset;
+      if(GET_CODE(e0_0) == REG){
+        // checks if register is SP_L
+        if(XINT(e0_0, 0) != 32)
+          gcc_unreachable();
+        offset = 0;
+      }else if(GET_CODE(e0_0) == PLUS){
+        rtx addant = XEXP(e0_0, 1);
+        if(GET_CODE(addant) != CONST_INT)
+          gcc_unreachable();
+        offset = XINT(addant, 0);
+      }else{
+        gcc_unreachable();
+      }
+      rtx e1 = XEXP(pat, 1);
+      if(GET_CODE(e1) != REG)
+        gcc_unreachable();
+      int reg = XINT(e1, 0);
+      // maintains that registers in descending order
+      if(last_offset -1 != offset)
+        gcc_unreachable();
+      asm_fprintf (out_file, "\t.save %R%u\n", reg);
+      last_offset = offset;
+      continue;
+  }
+  case REG_CFA_DEF_CFA:
+  case REG_CFA_RESTORE:
+    return;
+
+  case REG_CFA_EXPRESSION:
+    /* ??? Only handling here what we actually emit.  */
+    gcc_unreachable ();
+
+  default:
+    break;
+  }
+    }
+  if (handled_one){
+      return;
+  }
+  pat = PATTERN (insn);
+ found:
+
+  switch (GET_CODE (pat))
+    {
+    case PARALLEL:
+      // ignore it and hope for the best
+      break;
+    case SET:
+      avr_unwind_emit_set (out_file, pat);
+      break;
+
+    default:
+      abort();
+    }
+}
+
 /* Implement `ACCUMULATE_OUTGOING_ARGS'.  */
 
 int
@@ -13791,6 +14056,16 @@ avr_convert_to_type (tree type, tree expr)
   return NULL_TREE;
 }
 
+/* Implements EH_RETURN_HANDLER_RTX */
+rtx
+avr_eh_return_handler_rtx (void)
+{
+  rtx tmp = avr_incoming_return_addr_rtx();
+
+  /* Mark the store volatile, so no optimization is permitted to remove it.  */
+  MEM_VOLATILE_P (tmp) = true;
+  return tmp;
+}
 
 /* Implement `TARGET_LEGITIMATE_COMBINED_INSN'.  */
 
@@ -15395,6 +15670,9 @@ avr_float_lib_compare_returns_bool (machine_mode mode, enum rtx_code)
 
 #undef  TARGET_ADDR_SPACE_ZERO_ADDRESS_VALID
 #define TARGET_ADDR_SPACE_ZERO_ADDRESS_VALID avr_addr_space_zero_address_valid
+
+#undef TARGET_ASM_UNWIND_EMIT
+#define TARGET_ASM_UNWIND_EMIT avr_unwind_emit
 
 #undef  TARGET_MODE_DEPENDENT_ADDRESS_P
 #define TARGET_MODE_DEPENDENT_ADDRESS_P avr_mode_dependent_address_p

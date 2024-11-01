@@ -387,6 +387,8 @@ typedef struct avr_args
    There are no shared libraries on this target, and these sections are
    placed in the read-only program memory, so they are not writable.  */
 
+#define INIT_SECTION_ASM_OP "\t.section\t.init"
+
 #undef CTORS_SECTION_ASM_OP
 #define CTORS_SECTION_ASM_OP "\t.section .ctors,\"a\",@progbits"
 
@@ -517,9 +519,6 @@ extern const char *avr_no_devlib (int, const char**);
   " %:double-lib(%{m*:m%*})"                            \
   " %:device-specs-file(device-specs%s %{mmcu=*:%*})"
 
-/* No libstdc++ for now.  Empty string doesn't work.  */
-#define LIBSTDCXX "gcc"
-
 /* This is the default without any -mmcu=* option.  */
 #define MULTILIB_DEFAULTS { "mmcu=" AVR_MMCU_DEFAULT }
 
@@ -528,7 +527,18 @@ extern const char *avr_no_devlib (int, const char**);
 
 #define CR_TAB "\n\t"
 
+/* Used to define how dwarf exception handling is implemented. */
+#define EH_RETURN_DATA_REGNO(N) ((26 - (N+1) * 2) >= 20 ? (26 - (N+1) * 2) : INVALID_REGNUM)
+#define EH_RETURN_STACKADJ_RTX  gen_rtx_REG (Pmode, 24)
+  
+/* This might have to be changed to pcrel if the pointer is not big enough */
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL)           (DW_EH_PE_absptr)
+#define EH_RETURN_HANDLER_RTX avr_eh_return_handler_rtx ()
+
+
 #define DWARF2_ADDR_SIZE 4
+
+#define AVR_OUTPUT_FN_UNWIND(F, PROLOGUE) avr_output_fn_unwind (F, PROLOGUE)
 
 #define INCOMING_RETURN_ADDR_RTX   avr_incoming_return_addr_rtx ()
 #define INCOMING_FRAME_SP_OFFSET   (AVR_3_BYTE_PC ? 3 : 2)

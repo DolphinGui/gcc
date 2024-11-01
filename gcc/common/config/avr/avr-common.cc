@@ -135,6 +135,16 @@ avr_handle_option (struct gcc_options *opts, struct gcc_options*,
 }
 
 
+enum unwind_info_type
+avr_except_unwind_info (struct gcc_options *opts)
+{
+  if (!opts->x_flag_exceptions && !opts->x_flag_unwind_tables)
+return UI_NONE;
+  else
+return UI_TARGET;
+}
+
+
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION avr_handle_option
 
@@ -142,6 +152,6 @@ avr_handle_option (struct gcc_options *opts, struct gcc_options*,
 #define TARGET_OPTION_OPTIMIZATION_TABLE avr_option_optimization_table
 
 #undef TARGET_EXCEPT_UNWIND_INFO
-#define TARGET_EXCEPT_UNWIND_INFO sjlj_except_unwind_info
+#define TARGET_EXCEPT_UNWIND_INFO avr_except_unwind_info
 
 struct gcc_targetm_common targetm_common = TARGETM_COMMON_INITIALIZER;

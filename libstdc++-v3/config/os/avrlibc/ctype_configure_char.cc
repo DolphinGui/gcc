@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 2011-2024 Free Software Foundation, Inc.
+// Copyright (C) 2011-2023 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -67,17 +67,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   char
   ctype<char>::do_toupper(char __c) const
-  {
-    int __x = __c;
-    return (this->is(ctype_base::lower, __c) ? (__x - 'a' + 'A') : __x);
-  }
+  { return ::toupper((int) __c); }
 
   const char*
   ctype<char>::do_toupper(char* __low, const char* __high) const
   {
     while (__low < __high)
       {
-	*__low = this->do_toupper(*__low);
+	*__low = ::toupper((int) *__low);
 	++__low;
       }
     return __high;
@@ -85,17 +82,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   char
   ctype<char>::do_tolower(char __c) const
-  {
-    int __x = __c;
-    return (this->is(ctype_base::upper, __c) ? (__x - 'A' + 'a') : __x);
-  }
+  { return ::tolower((int) __c); }
 
   const char*
   ctype<char>::do_tolower(char* __low, const char* __high) const
   {
     while (__low < __high)
       {
-	*__low = this->do_tolower(*__low);
+	*__low = ::tolower((int) *__low);
 	++__low;
       }
     return __high;

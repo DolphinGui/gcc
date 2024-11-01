@@ -32,6 +32,10 @@ extern rtx avr_return_addr_rtx (int count, rtx tem);
 extern void avr_register_target_pragmas (void);
 extern void avr_init_expanders (void);
 
+extern void avr_asm_declare_function_name (FILE *, const char *, tree);
+extern void avr_output_fn_unwind (FILE *, bool prologue);
+extern enum unwind_info_type avr_except_unwind_info (struct gcc_options *opts);
+
 #ifdef TREE_CODE
 extern void avr_asm_output_aligned_decl_common (FILE*, tree, const char*, unsigned HOST_WIDE_INT, unsigned int, bool);
 extern void avr_asm_asm_output_aligned_bss (FILE *, tree, const char *, unsigned HOST_WIDE_INT, int, void (*) (FILE *, tree, const char *, unsigned HOST_WIDE_INT, int));
@@ -86,6 +90,7 @@ extern rtx avr_to_int_mode (rtx);
 
 extern void avr_expand_prologue (void);
 extern void avr_expand_epilogue (bool);
+extern rtx avr_eh_return_handler_rtx (void);
 extern bool avr_emit_cpymemhi (rtx*);
 extern int avr_epilogue_uses (int regno);
 
