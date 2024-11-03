@@ -294,3 +294,5 @@ LIB2FUNCS_EXCLUDE += \
 LIB2FUNCS_EXCLUDE += \
 	$(foreach func,_ssmul,\
 	$(foreach mode,$(ssmul_modes),$(func_X)))
+
+LIB2ADDEH = $(srcdir)/config/avr/unwind-avr.S $(srcdir)/config/avr/unwind-avr-sup.c
