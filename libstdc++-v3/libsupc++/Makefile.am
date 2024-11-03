@@ -65,6 +65,7 @@ sources = \
 	eh_alloc.cc \
 	eh_arm.cc \
 	eh_aux_runtime.cc \
+  eh_avr.cc \
 	eh_call.cc \
 	eh_catch.cc \
 	eh_exception.cc \
