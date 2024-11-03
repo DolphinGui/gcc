@@ -93,6 +93,7 @@ struct personality_out{
   uint16_t landing_pad;
 };
 
+extern "C" __attribute__((noreturn)) void __avr_terminate();
 
 // this is very bad, and probably should be rewritten in assembly for speed/size
 extern "C" uint8_t __avr_cxx_personality(prog_byte *ptr, uint16_t pc_offset, void *exc,

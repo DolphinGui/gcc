@@ -14,7 +14,7 @@ static __attribute__((noreturn)) void __avr_terminate_default_impl(){
 
 __avr_terminate_handler_t __avr_terminate_ptr = &__avr_terminate_default_impl;
 
-void __avr_terminate() __attribute__((noreturn)){
+__attribute__((noreturn)) void __avr_terminate() {
   __avr_terminate_ptr();
 }
 // no plans to implement forced unwinding
