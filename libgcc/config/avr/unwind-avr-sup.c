@@ -5,7 +5,18 @@ extern prog_byte __fae_table_stop[];
 
 typedef const table_entry_t __maybe_flash * table_ptr;
 
-void __avr_terminate() __attribute__((noreturn));
+typedef void (*__avr_terminate_handler_t)() __attribute__((noreturn));
+
+static __attribute__((noreturn)) void __avr_terminate_default_impl(){
+  volatile char c = 0;
+  while(1) {c = 0;}
+}
+
+__avr_terminate_handler_t __avr_terminate_ptr = &__avr_terminate_default_impl;
+
+void __avr_terminate() __attribute__((noreturn)){
+  __avr_terminate_ptr();
+}
 // no plans to implement forced unwinding
 void _Unwind_ForcedUnwind() { __avr_terminate(); }
 

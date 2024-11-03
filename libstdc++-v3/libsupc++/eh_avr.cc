@@ -42,10 +42,6 @@ static void *get_adjusted_ptr(void *exc,
   return cxa_except->adjustedPtr;
 }
 
-extern "C" void __avr_terminate() {
-  std::terminate();
-}
-
 typedef const uint8_t prog_byte;
 typedef void* void_ptr;
 typedef const void_ptr *prog_ptr;
