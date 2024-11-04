@@ -40,6 +40,11 @@ typedef struct
   const char *section_name;
 } avr_addrspace_t;
 
+
+/* This has to be done so that unwind-avr.S overrides the definition
+   defined in unwind.inc. */
+#define LIBGCC2_UNWIND_ATTRIBUTE __attribute__((weak))
+
 extern const avr_addrspace_t avr_addrspace[];
 
 /* Known address spaces */
