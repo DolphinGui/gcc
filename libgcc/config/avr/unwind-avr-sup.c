@@ -1,4 +1,5 @@
 #include "fae.h"
+#include "unwind-generic.h"
 
 extern prog_byte __fae_table_start[];
 extern prog_byte __fae_table_stop[];
@@ -8,8 +9,7 @@ typedef const table_entry_t __maybe_flash * table_ptr;
 typedef void (*__avr_terminate_handler_t)() __attribute__((noreturn));
 
 static __attribute__((noreturn)) void __avr_terminate_default_impl(){
-  volatile char c = 0;
-  while(1) {c = 0;}
+  __builtin_trap();
 }
 
 __avr_terminate_handler_t __avr_terminate_ptr = &__avr_terminate_default_impl;
@@ -17,6 +17,15 @@ __avr_terminate_handler_t __avr_terminate_ptr = &__avr_terminate_default_impl;
 __attribute__((noreturn)) void __avr_terminate() {
   __avr_terminate_ptr();
 }
+
+void
+_Unwind_DeleteException (struct _Unwind_Exception *exc)
+{
+  if (exc->exception_cleanup)
+    (*exc->exception_cleanup) (_URC_FOREIGN_EXCEPTION_CAUGHT, exc);
+}
+
+
 // no plans to implement forced unwinding
 void _Unwind_ForcedUnwind() { __avr_terminate(); }
 
