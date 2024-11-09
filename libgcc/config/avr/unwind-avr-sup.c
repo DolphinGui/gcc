@@ -27,7 +27,7 @@ _Unwind_DeleteException (struct _Unwind_Exception *exc)
 
 
 // no plans to implement forced unwinding
-void _Unwind_ForcedUnwind() { __avr_terminate(); }
+_Unwind_Reason_Code _Unwind_ForcedUnwind(struct _Unwind_Exception *, _Unwind_Stop_Fn, void *) { __avr_terminate(); }
 
 // returns data pointer for pc entry. If no entry is found, return 0
 table_data __fae_get_ptr(void *except, uint16_t pc) {
