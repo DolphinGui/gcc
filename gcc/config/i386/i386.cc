@@ -22587,55 +22587,57 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
 #endif /* TARGET_MACHO */
 
 /* Order the registers for register allocator.  */
-
+#define FDSA {	reg_alloc_order [pos++] = i; \
+              printf("%d: %s, %s\n", pos-1, names[i], (!call_used_or_fixed_reg_p(i)) ? "call-saved" : "call-clobbered");}
 void
 x86_order_regs_for_local_alloc (void)
 {
    int pos = 0;
    int i;
+   static const char* names[] = REGISTER_NAMES;
 
    /* First allocate the local general purpose registers.  */
    for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
      if (GENERAL_REGNO_P (i) && call_used_or_fixed_reg_p (i))
-	reg_alloc_order [pos++] = i;
+	FDSA;
 
    /* Global general purpose registers.  */
    for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
      if (GENERAL_REGNO_P (i) && !call_used_or_fixed_reg_p (i))
-	reg_alloc_order [pos++] = i;
+	FDSA;
 
    /* x87 registers come first in case we are doing FP math
       using them.  */
    if (!TARGET_SSE_MATH)
      for (i = FIRST_STACK_REG; i <= LAST_STACK_REG; i++)
-       reg_alloc_order [pos++] = i;
+       FDSA;
 
    /* SSE registers.  */
    for (i = FIRST_SSE_REG; i <= LAST_SSE_REG; i++)
-     reg_alloc_order [pos++] = i;
+     FDSA;
    for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)
-     reg_alloc_order [pos++] = i;
+     FDSA;
 
    /* Extended REX SSE registers.  */
    for (i = FIRST_EXT_REX_SSE_REG; i <= LAST_EXT_REX_SSE_REG; i++)
-     reg_alloc_order [pos++] = i;
+     FDSA;
 
    /* Mask register.  */
    for (i = FIRST_MASK_REG; i <= LAST_MASK_REG; i++)
-     reg_alloc_order [pos++] = i;
+     FDSA;
 
    /* x87 registers.  */
    if (TARGET_SSE_MATH)
      for (i = FIRST_STACK_REG; i <= LAST_STACK_REG; i++)
-       reg_alloc_order [pos++] = i;
+       FDSA;
 
    for (i = FIRST_MMX_REG; i <= LAST_MMX_REG; i++)
-     reg_alloc_order [pos++] = i;
+     FDSA;
 
    /* Initialize the rest of array as we do not allocate some registers
       at all.  */
    while (pos < FIRST_PSEUDO_REGISTER)
-     reg_alloc_order [pos++] = 0;
+     FDSA;
 }
 
 static bool
