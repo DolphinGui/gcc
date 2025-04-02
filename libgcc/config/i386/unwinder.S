@@ -3,7 +3,12 @@
    allocation order which actually depends on certain things
    but for now this will do*/
 
+.ident "GNU C++ x86_64 fae unwinder"
+
 .section .text
+
+.globl __gnu_fae_unwinder_x86_64v0
+.type __gnu_fae_unwinder_x86_64v0,@function
 
 __gnu_fae_unwinder_x86_64v0:
   mov r15 qword ptr [rsp + 48]
@@ -14,4 +19,5 @@ __gnu_fae_unwinder_x86_64v0:
   mov rbx qword ptr [rsp + 8]
   pop rip
   jmp __fae_finish_unwinding
+
 
