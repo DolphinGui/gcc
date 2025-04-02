@@ -1909,7 +1909,7 @@ AC_ARG_ENABLE(fae-exceptions,
     ;;
 esac])
 if test $force_fae_exceptions = yes; then
-  fea=`if test $enableval = yes; then echo 1; else echo 0; fi`
+  fae=`if test $enableval = yes; then echo 1; else echo 0; fi`
   AC_DEFINE_UNQUOTED(CONFIG_FAE_EXCEPTIONS, $fae,
     [Define 0/1 to force the choice for exception handling model.])
 fi
