@@ -176,6 +176,10 @@ static GTY(()) section *debug_ranges_section;
 static GTY(()) section *debug_ranges_dwo_section;
 static GTY(()) section *debug_frame_section;
 
+#ifdef CONFIG_FAE_EXCEPTIONS
+#error this is working
+#endif
+
 /* Maximum size (in bytes) of an artificially generated label.  */
 #define MAX_ARTIFICIAL_LABEL_BYTES	40
 

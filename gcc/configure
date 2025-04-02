@@ -1010,6 +1010,7 @@ enable_rpath
 with_libiconv_prefix
 with_libiconv_type
 enable_sjlj_exceptions
+enable_fae_exceptions
 enable_win32_utf8_manifest
 with_gcc_major_version_only
 enable_nls
@@ -1744,6 +1745,7 @@ Optional Features:
   --disable-rpath         do not hardcode runtime library paths
   --enable-sjlj-exceptions
                           arrange to use setjmp/longjmp exception handling
+  --enable-fae-exceptions arrange to use Fast Advanced Exception handling
   --disable-win32-utf8-manifest
                           disable embedding a utf8 manifest on mingw hosts
   --enable-win32-utf8-manifest
@@ -12947,6 +12949,27 @@ _ACEOF
 
 fi
 
+
+# Check whether --enable-fae-exceptions was given.
+if test "${enable_fae_exceptions+set}" = set; then :
+  enableval=$enable_fae_exceptions; force_fae_exceptions=yes
+else
+  case $target in
+  *)
+    force_sjlj_exceptions=no
+    ;;
+esac
+fi
+
+if test $force_fae_exceptions = yes; then
+  fea=`if test $enableval = yes; then echo 1; else echo 0; fi`
+
+cat >>confdefs.h <<_ACEOF
+#define CONFIG_FAE_EXCEPTIONS $fae
+_ACEOF
+
+fi
+
 # Windows32 UTF-8 manifest support for running the driver and compiler
 # executables with the UTF-8 active code page on mingw hosts.
 # Non-mingw hosts ignore this option.
@@ -21520,7 +21543,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 21523 "configure"
+#line 21546 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -21626,7 +21649,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 21629 "configure"
+#line 21652 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H

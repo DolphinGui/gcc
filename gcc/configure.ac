@@ -1898,6 +1898,22 @@ if test $force_sjlj_exceptions = yes; then
     [Define 0/1 to force the choice for exception handling model.])
 fi
 
+
+AC_ARG_ENABLE(fae-exceptions,
+[AS_HELP_STRING([--enable-fae-exceptions],
+                [arrange to use Fast Advanced Exception handling])],
+[force_fae_exceptions=yes],
+[case $target in
+  *)
+    force_sjlj_exceptions=no
+    ;;
+esac])
+if test $force_fae_exceptions = yes; then
+  fea=`if test $enableval = yes; then echo 1; else echo 0; fi`
+  AC_DEFINE_UNQUOTED(CONFIG_FAE_EXCEPTIONS, $fae,
+    [Define 0/1 to force the choice for exception handling model.])
+fi
+
 # Windows32 UTF-8 manifest support for running the driver and compiler
 # executables with the UTF-8 active code page on mingw hosts.
 # Non-mingw hosts ignore this option.
