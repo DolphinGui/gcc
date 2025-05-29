@@ -1,41 +1,40 @@
 #define INCLUDE_MEMORY
-#include "config.h"
-#include "system.h"
-#include "coretypes.h"
 #include "backend.h"
-#include "target.h"
-#include "rtl.h"
-#include "tree.h"
-#include "cfghooks.h"
-#include "tree-pass.h"
-#include "memmodel.h"
-#include "tm_p.h"
-#include "stringpool.h"
-#include "expmed.h"
-#include "optabs.h"
-#include "emit-rtl.h"
-#include "cgraph.h"
-#include "diagnostic.h"
-#include "fold-const.h"
-#include "stor-layout.h"
-#include "explow.h"
-#include "stmt.h"
-#include "expr.h"
-#include "calls.h"
-#include "libfuncs.h"
-#include "except.h"
-#include "output.h"
-#include "dwarf2asm.h"
-#include "dwarf2.h"
-#include "common/common-target.h"
-#include "langhooks.h"
-#include "cfgrtl.h"
-#include "tree-pretty-print.h"
-#include "cfgloop.h"
 #include "builtins.h"
-#include "tree-hash-traits.h"
+#include "calls.h"
+#include "cfghooks.h"
+#include "cfgloop.h"
+#include "cfgrtl.h"
+#include "cgraph.h"
+#include "common/common-target.h"
+#include "config.h"
+#include "coretypes.h"
+#include "diagnostic.h"
+#include "dwarf2.h"
+#include "dwarf2asm.h"
+#include "emit-rtl.h"
+#include "except.h"
+#include "explow.h"
+#include "expmed.h"
+#include "expr.h"
 #include "flags.h"
-
+#include "fold-const.h"
+#include "langhooks.h"
+#include "libfuncs.h"
+#include "memmodel.h"
+#include "optabs.h"
+#include "output.h"
+#include "rtl.h"
+#include "stmt.h"
+#include "stor-layout.h"
+#include "stringpool.h"
+#include "system.h"
+#include "target.h"
+#include "tm_p.h"
+#include "tree-hash-traits.h"
+#include "tree-pass.h"
+#include "tree-pretty-print.h"
+#include "tree.h"
 
 #include "faegen.h"
 
@@ -169,10 +168,18 @@ void emit_fae_start() {
 any exceptions thrown in destructors or such won't work*/
 void emit_fae_end() {
   gcc_assert(asm_out_file);
+  if (cur_fun_dat.used_alloca)
+    gcc_assert(cur_fun_dat.regs <= 5);
+  else
+    gcc_assert(cur_fun_dat.regs <= 6);
 
-  fputs("\t.fae_unwinder __gx0_x86_64_unwinder - ", asm_out_file);
-  // x86_64 pop is 1 byte long.
-  fprint_whex(asm_out_file, cur_fun_dat.regs);
+  const char *unwinder = cur_fun_dat.used_alloca
+                             ? "\t.fae_unwinder __gnu_fae_unwinder_x86_64_dynv0 - "
+                             : "\t.fae_unwinder __gnu_fae_unwinder_x86_64v0 - ";
+
+  fputs(unwinder, asm_out_file);
+  // x86_64 mov is 5 bytes long.
+  fprint_whex(asm_out_file, cur_fun_dat.regs * 5);
   fputc('\n', asm_out_file);
 
   if (!cur_fun_dat.used_alloca) {
