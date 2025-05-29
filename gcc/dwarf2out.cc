@@ -98,6 +98,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl-iter.h"
 #include "stringpool.h"
 #include "attribs.h"
+#include "plugin.h"
 #include "file-prefix-map.h" /* remap_debug_filename()  */
 
 static void dwarf2out_source_line (unsigned int, unsigned int, const char *,
@@ -176,10 +177,6 @@ static GTY(()) section *debug_str_offsets_section;
 static GTY(()) section *debug_ranges_section;
 static GTY(()) section *debug_ranges_dwo_section;
 static GTY(()) section *debug_frame_section;
-
-#ifdef CONFIG_FAE_EXCEPTIONS
-#error this is working
-#endif
 
 /* Maximum size (in bytes) of an artificially generated label.  */
 #define MAX_ARTIFICIAL_LABEL_BYTES	40
@@ -988,6 +985,7 @@ dwarf2out_do_cfi_startproc (bool second)
   rtx ref;
 
   fprintf (asm_out_file, "\t.cfi_startproc\n");
+  invoke_plugin_callbacks(PLUGIN_FUNCTION_PROLOGUE, NULL); 
 
   targetm.asm_out.post_cfi_startproc (asm_out_file, current_function_decl);
 
@@ -1263,6 +1261,8 @@ dwarf2out_end_epilogue (unsigned int line ATTRIBUTE_UNUSED,
   if (dwarf2out_do_cfi_asm ())
     fprintf (asm_out_file, "\t.cfi_endproc\n");
 
+  invoke_plugin_callbacks(PLUGIN_FUNCTION_EPILOGUE, NULL); 
+
 #ifdef CODEVIEW_DEBUGGING_INFO
   if (codeview_debuginfo_p ())
     codeview_end_epilogue ();
@@ -1328,6 +1328,7 @@ dwarf2out_switch_text_section (void)
 
   if (dwarf2out_do_cfi_asm ())
     fprintf (asm_out_file, "\t.cfi_endproc\n");
+  invoke_plugin_callbacks(PLUGIN_FUNCTION_EPILOGUE, NULL);
 
   mark_ignored_debug_section (fde, false);
 

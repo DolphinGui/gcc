@@ -84,6 +84,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function-abi.h"
 #include "common/common-target.h"
 #include "diagnostic.h"
+#include "plugin.h"
 
 #include "dwarf2out.h"
 

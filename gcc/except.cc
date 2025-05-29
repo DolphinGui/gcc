@@ -146,8 +146,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "tree-hash-traits.h"
 #include "flags.h"
+#include "plugin.h"
 
-static GTY(()) int call_site_base;
+int call_site_base;
 
 static GTY(()) hash_map<tree_hash, tree> *type_to_runtime_map;
 
@@ -2377,6 +2378,7 @@ add_action_record (action_hash_type *ar_hash, int filter, int next)
 	 indices we've been carrying around into a displacement.  */
 
       push_sleb128 (&crtl->eh.action_record_data, filter);
+      invoke_plugin_callbacks(PLUGIN_LSDA_ACTION_RECORD_EMIT, (void*) filter); 
       if (next)
 	next -= crtl->eh.action_record_data->length () + 1;
       push_sleb128 (&crtl->eh.action_record_data, next);
@@ -2850,6 +2852,16 @@ sjlj_size_of_call_site_table (void)
   return size;
 }
 
+// This really should be moved into something like
+// fae_output_call_site_table, but for now we
+// do this jankery.
+struct region_data{
+  const char* begin;
+  const char* end;
+  const char* landing_pad;
+  uint action;
+};
+
 static void
 dw2_output_call_site_table (int cs_format, int section)
 {
@@ -2878,6 +2890,14 @@ dw2_output_call_site_table (int cs_format, int section)
 	ASM_GENERATE_INTERNAL_LABEL (landing_pad_lab, "L",
 				     CODE_LABEL_NUMBER (cs->landing_pad));
 
+      struct region_data r{
+        reg_start_lab,
+        reg_end_lab,
+        landing_pad_lab,
+        cs->action,
+      };
+      invoke_plugin_callbacks(PLUGIN_LSDA_REGION_EMIT, &r);
+	
       /* ??? Perhaps use insn length scaling if the assembler supports
 	 generic arithmetic.  */
       /* ??? Perhaps use attr_length to choose data1 or data2 instead of
@@ -2910,6 +2930,7 @@ dw2_output_call_site_table (int cs_format, int section)
 
   call_site_base += n;
 }
+
 
 static void
 sjlj_output_call_site_table (void)
@@ -3032,6 +3053,11 @@ output_ttype (tree type, int tt_format, int tt_format_size)
   else
     dw2_asm_output_encoded_addr_rtx (tt_format, value, is_public, NULL);
 }
+
+struct ac_data{
+  uchar* action_records;
+  uint action_records_len;
+};
 
 /* Output an exception table for the current function according to SECTION.
 
@@ -3256,6 +3282,8 @@ output_function_exception_table (int section)
 
   /* Do the real work.  */
   output_one_function_exception_table (section);
+
+  invoke_plugin_callbacks(PLUGIN_LSDA_FINISH, (void*)section); 
 
   switch_to_section (current_function_section ());
 }

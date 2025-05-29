@@ -12896,7 +12896,7 @@ esac
 fi
 
 if test $force_fae_exceptions = yes; then
-  fea=`if test $enableval = yes; then echo 1; else echo 0; fi`
+  fae=`if test $enableval = yes; then echo 1; else echo 0; fi`
 
 cat >>confdefs.h <<_ACEOF
 #define CONFIG_FAE_EXCEPTIONS $fae
