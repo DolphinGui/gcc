@@ -1,6 +1,6 @@
 .ident "GNU C++ x86_64 unwinding routine"
 
-.section .text
+.text
 
 .globl __gnu_fae_unwind
 .type __gnu_fae_unwind

@@ -35,12 +35,7 @@
 #include "builtins.h"
 #include "tree-hash-traits.h"
 #include "flags.h"
-
-
 #include "faegen.h"
-
-#include <cassert>
-#include <cstdio>
 
 struct GTY(()) function_data {
   const char *name = NULL;
@@ -159,10 +154,9 @@ void emit_fae_end() {
   else
     gcc_assert(cur_fun_dat.regs <= 6);
 
-  const char *unwinder =
-      cur_fun_dat.used_alloca
-          ? "\t.fae_unwinder __gnu_fae_unwinder_x86_64_dynv0 - "
-          : "\t.fae_unwinder __gnu_fae_unwinder_x86_64v0 - ";
+  const char *unwinder = cur_fun_dat.used_alloca
+                             ? "\t.fae_unwinder __gnu_fae_unwinder_x86_64_dynv0 - "
+                             : "\t.fae_unwinder __gnu_fae_unwinder_x86_64v0 - ";
 
   fputs(unwinder, asm_out_file);
   // x86_64 mov is 5 bytes long.
