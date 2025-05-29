@@ -560,6 +560,7 @@ along with GCC; see the file COPYING3.  If not see
 	  NEXT_PASS (pass_shorten_branches);
 	  NEXT_PASS (pass_set_nothrow_function_flags);
 	  NEXT_PASS (pass_dwarf2_frame);
+          NEXT_PASS (pass_faegen);
 	  NEXT_PASS (pass_final);
       POP_INSERT_PASSES ()
       NEXT_PASS (pass_df_finish);

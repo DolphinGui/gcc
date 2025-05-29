@@ -98,6 +98,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "attribs.h"
 #include "file-prefix-map.h" /* remap_debug_filename()  */
+#include "faegen.h"
 
 static void dwarf2out_source_line (unsigned int, unsigned int, const char *,
 				   int, bool);
@@ -1041,6 +1042,7 @@ dwarf2out_do_cfi_startproc (bool second)
       output_addr_const (asm_out_file, ref);
       fputc ('\n', asm_out_file);
     }
+    emit_fae_start();
 }
 
 /* Allocate CURRENT_FDE.  Immediately initialize all we can, noting that
@@ -1278,6 +1280,8 @@ dwarf2out_end_epilogue (unsigned int line ATTRIBUTE_UNUSED,
     fde->dw_fde_end = xstrdup (label);
 
   mark_ignored_debug_section (fde, fde->dw_fde_second_begin != NULL);
+
+  emit_fae_end();
 }
 
 void
@@ -1327,6 +1331,8 @@ dwarf2out_switch_text_section (void)
 
   if (dwarf2out_do_cfi_asm ())
     fprintf (asm_out_file, "\t.cfi_endproc\n");
+
+  emit_fae_end();
 
   mark_ignored_debug_section (fde, false);
 

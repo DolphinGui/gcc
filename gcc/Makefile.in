@@ -1471,6 +1471,7 @@ OBJS = \
 	expmed.o \
 	expr.o \
 	ext-dce.o \
+	faegen.o \
 	fibonacci_heap.o \
 	file-prefix-map.o \
 	final.o \
@@ -3093,6 +3094,7 @@ GTFILES = $(CPPLIB_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/internal-fn.h \
   $(srcdir)/calls.cc \
   $(srcdir)/analyzer/analyzer-language.cc \
+  $(srcdir)/faegen.cc \
   @all_gtfiles@
 
 # Compute the list of GT header files from the corresponding C sources,

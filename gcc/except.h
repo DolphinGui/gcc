@@ -283,6 +283,8 @@ extern eh_landing_pad get_eh_landing_pad_from_rtx (const_rtx);
 
 extern void finish_eh_generation (void);
 
+extern int call_site_base;
+
 struct GTY(()) throw_stmt_node {
   gimple *stmt;
   int lp_nr;

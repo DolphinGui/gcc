@@ -145,8 +145,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "tree-hash-traits.h"
 #include "flags.h"
+#include "faegen.h"
 
-static GTY(()) int call_site_base;
+GTY(()) int call_site_base;
 
 static GTY(()) hash_map<tree_hash, tree> *type_to_runtime_map;
 
@@ -160,12 +161,6 @@ static int sjlj_fc_personality_ofs;
 static int sjlj_fc_lsda_ofs;
 static int sjlj_fc_jbuf_ofs;
 
-
-struct GTY(()) call_site_record_d
-{
-  rtx landing_pad;
-  int action;
-};
 
 /* In the following structure and associated functions,
    we represent entries in the action table as 1-based indices.
@@ -3251,6 +3246,8 @@ output_function_exception_table (int section)
   if (section == 1 && !crtl->eh.call_site_record_v[1])
     return;
 
+  emit_fae_lsda(section);
+
   const char *fnname = get_fnname_from_decl (current_function_decl);
   rtx personality = get_personality_function (current_function_decl);
 
@@ -3269,7 +3266,7 @@ output_function_exception_table (int section)
 
   /* Do the real work.  */
   output_one_function_exception_table (section);
-
+  
   switch_to_section (current_function_section ());
 }
 

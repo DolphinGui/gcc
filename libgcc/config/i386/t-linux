@@ -5,3 +5,6 @@ SHLIB_MAPFILES = libgcc-std.ver $(srcdir)/config/i386/libgcc-glibc.ver
 
 HOST_LIBGCC2_CFLAGS += -mlong-double-80 -DUSE_ELF_SYMVER $(CET_FLAGS)
 CRTSTUFF_T_CFLAGS += $(CET_FLAGS)
+
+LIB2ADDEH += $(srcdir)/config/i386/stub.c
+
