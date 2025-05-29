@@ -98,7 +98,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl-iter.h"
 #include "stringpool.h"
 #include "attribs.h"
-#include "plugin.h"
+#include "faegen.h"
 #include "file-prefix-map.h" /* remap_debug_filename()  */
 
 static void dwarf2out_source_line (unsigned int, unsigned int, const char *,
@@ -985,8 +985,6 @@ dwarf2out_do_cfi_startproc (bool second)
   rtx ref;
 
   fprintf (asm_out_file, "\t.cfi_startproc\n");
-  invoke_plugin_callbacks(PLUGIN_FUNCTION_PROLOGUE, NULL); 
-
   targetm.asm_out.post_cfi_startproc (asm_out_file, current_function_decl);
 
   /* .cfi_personality and .cfi_lsda are only relevant to DWARF2
@@ -1040,6 +1038,7 @@ dwarf2out_do_cfi_startproc (bool second)
       output_addr_const (asm_out_file, ref);
       fputc ('\n', asm_out_file);
     }
+  emit_fae_start();
 }
 
 /* Allocate CURRENT_FDE.  Immediately initialize all we can, noting that
@@ -1260,8 +1259,7 @@ dwarf2out_end_epilogue (unsigned int line ATTRIBUTE_UNUSED,
 
   if (dwarf2out_do_cfi_asm ())
     fprintf (asm_out_file, "\t.cfi_endproc\n");
-
-  invoke_plugin_callbacks(PLUGIN_FUNCTION_EPILOGUE, NULL); 
+  emit_fae_end();
 
 #ifdef CODEVIEW_DEBUGGING_INFO
   if (codeview_debuginfo_p ())
@@ -1328,7 +1326,8 @@ dwarf2out_switch_text_section (void)
 
   if (dwarf2out_do_cfi_asm ())
     fprintf (asm_out_file, "\t.cfi_endproc\n");
-  invoke_plugin_callbacks(PLUGIN_FUNCTION_EPILOGUE, NULL);
+
+  emit_fae_end();
 
   mark_ignored_debug_section (fde, false);
 

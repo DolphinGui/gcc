@@ -146,7 +146,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "tree-hash-traits.h"
 #include "flags.h"
-#include "plugin.h"
+#include "faegen.h"
 
 int call_site_base;
 
@@ -162,12 +162,6 @@ static int sjlj_fc_personality_ofs;
 static int sjlj_fc_lsda_ofs;
 static int sjlj_fc_jbuf_ofs;
 
-
-struct GTY(()) call_site_record_d
-{
-  rtx landing_pad;
-  int action;
-};
 
 /* In the following structure and associated functions,
    we represent entries in the action table as 1-based indices.
@@ -2378,7 +2372,6 @@ add_action_record (action_hash_type *ar_hash, int filter, int next)
 	 indices we've been carrying around into a displacement.  */
 
       push_sleb128 (&crtl->eh.action_record_data, filter);
-      invoke_plugin_callbacks(PLUGIN_LSDA_ACTION_RECORD_EMIT, (void*) filter); 
       if (next)
 	next -= crtl->eh.action_record_data->length () + 1;
       push_sleb128 (&crtl->eh.action_record_data, next);
@@ -2852,16 +2845,6 @@ sjlj_size_of_call_site_table (void)
   return size;
 }
 
-// This really should be moved into something like
-// fae_output_call_site_table, but for now we
-// do this jankery.
-struct region_data{
-  const char* begin;
-  const char* end;
-  const char* landing_pad;
-  uint action;
-};
-
 static void
 dw2_output_call_site_table (int cs_format, int section)
 {
@@ -2890,14 +2873,6 @@ dw2_output_call_site_table (int cs_format, int section)
 	ASM_GENERATE_INTERNAL_LABEL (landing_pad_lab, "L",
 				     CODE_LABEL_NUMBER (cs->landing_pad));
 
-      struct region_data r{
-        reg_start_lab,
-        reg_end_lab,
-        landing_pad_lab,
-        cs->action,
-      };
-      invoke_plugin_callbacks(PLUGIN_LSDA_REGION_EMIT, &r);
-	
       /* ??? Perhaps use insn length scaling if the assembler supports
 	 generic arithmetic.  */
       /* ??? Perhaps use attr_length to choose data1 or data2 instead of
@@ -3283,7 +3258,7 @@ output_function_exception_table (int section)
   /* Do the real work.  */
   output_one_function_exception_table (section);
 
-  invoke_plugin_callbacks(PLUGIN_LSDA_FINISH, (void*)section); 
+  emit_fae_lsda(section);
 
   switch_to_section (current_function_section ());
 }

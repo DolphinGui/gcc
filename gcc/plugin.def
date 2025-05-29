@@ -103,13 +103,6 @@ DEFEVENT (PLUGIN_INCLUDE_FILE)
    ana::plugin_analyzer_init_iface *.  */
 DEFEVENT (PLUGIN_ANALYZER_INIT)
 
-DEFEVENT (PLUGIN_FUNCTION_EPILOGUE)
-DEFEVENT (PLUGIN_FUNCTION_PROLOGUE)
-
-DEFEVENT (PLUGIN_LSDA_REGION_EMIT)
-DEFEVENT (PLUGIN_LSDA_ACTION_RECORD_EMIT)
-DEFEVENT (PLUGIN_LSDA_FINISH)
-
 /* When adding a new hard-coded plugin event, don't forget to edit in
    file plugin.cc the functions register_callback and
    invoke_plugin_callbacks_full accordingly!  */

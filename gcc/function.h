@@ -133,6 +133,12 @@ struct GTY(()) expr_status {
 
 typedef struct call_site_record_d *call_site_record;
 
+struct GTY(()) call_site_record_d
+{
+  rtx landing_pad;
+  int action;
+};
+
 /* RTL representation of exception handling.  */
 struct GTY(()) rtl_eh {
   rtx ehr_stackadj;
