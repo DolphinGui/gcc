@@ -1,44 +1,48 @@
 #define INCLUDE_MEMORY
-#include "backend.h"
-#include "builtins.h"
-#include "calls.h"
-#include "cfghooks.h"
-#include "cfgloop.h"
-#include "cfgrtl.h"
-#include "cgraph.h"
-#include "common/common-target.h"
 #include "config.h"
-#include "coretypes.h"
-#include "diagnostic.h"
-#include "dwarf2.h"
-#include "dwarf2asm.h"
-#include "emit-rtl.h"
-#include "except.h"
-#include "explow.h"
-#include "expmed.h"
-#include "expr.h"
-#include "flags.h"
-#include "fold-const.h"
-#include "langhooks.h"
-#include "libfuncs.h"
-#include "memmodel.h"
-#include "optabs.h"
-#include "output.h"
-#include "rtl.h"
-#include "stmt.h"
-#include "stor-layout.h"
-#include "stringpool.h"
+
 #include "system.h"
+
+#include "coretypes.h"
+
+#include "backend.h"
+
 #include "target.h"
-#include "tm_p.h"
-#include "tree-hash-traits.h"
-#include "tree-pass.h"
-#include "tree-pretty-print.h"
+
+#include "rtl.h"
 #include "tree.h"
+#include "cfghooks.h"
+#include "tree-pass.h"
+#include "memmodel.h"
+#include "tm_p.h"
+#include "stringpool.h"
+#include "expmed.h"
+#include "optabs.h"
+#include "emit-rtl.h"
+#include "cgraph.h"
+#include "diagnostic.h"
+#include "fold-const.h"
+#include "stor-layout.h"
+#include "explow.h"
+#include "stmt.h"
+#include "expr.h"
+#include "calls.h"
+#include "libfuncs.h"
+#include "except.h"
+#include "output.h"
+#include "dwarf2asm.h"
+#include "dwarf2.h"
+#include "common/common-target.h"
+#include "langhooks.h"
+#include "cfgrtl.h"
+#include "tree-pretty-print.h"
+#include "cfgloop.h"
+#include "builtins.h"
+#include "tree-hash-traits.h"
+#include "flags.h"
 
 #include "faegen.h"
 
-#include <cassert>
 #include <cstdio>
 
 struct GTY(()) function_data {
@@ -95,41 +99,6 @@ static void output_ttype(tree type) {
 // basically copied from except.cc
 static void switch_to_fae_lsda_section(const char *fnname);
 
-// void emit_header(int regions);
-static void emit_regions(int regions, int section, int base);
-static void emit_action_records(int regions, int section, int base);
-
-void emit_fae_lsda(int section) {
-  gcc_assert(cur_fun_dat.name != NULL);
-  const int base =
-      call_site_base - crtl->eh.call_site_record_v[section]->length();
-
-  int regions = crtl->eh.call_site_record_v[section]->length();
-
-  switch_to_fae_lsda_section(cur_fun_dat.name);
-
-  fputs("# call sites\n", asm_out_file);
-  cur_fun_dat.lsda_label = create_lsda_label("FAElsda");
-  ASM_OUTPUT_LABEL(asm_out_file, cur_fun_dat.lsda_label);
-
-  emit_regions(regions, section, base);
-
-  fprintf(asm_out_file, "# action records\n");
-
-  emit_action_records(regions, section, base);
-
-  auto l = create_lsda_label("FAEttypes");
-  ASM_OUTPUT_LABEL(asm_out_file, l);
-  int ttypes = vec_safe_length(cfun->eh->ttype_data);
-  if (ttypes)
-    assemble_align(BITS_PER_UNIT * 4);
-  for (int i = 0; i < ttypes; ++i) {
-    tree type = (*cfun->eh->ttype_data)[i];
-    output_ttype(type);
-  }
-  lsda_base += 1;
-}
-
 uint fnum = 0;
 
 const pass_data fae_data = {
@@ -173,9 +142,10 @@ void emit_fae_end() {
   else
     gcc_assert(cur_fun_dat.regs <= 6);
 
-  const char *unwinder = cur_fun_dat.used_alloca
-                             ? "\t.fae_unwinder __gnu_fae_unwinder_x86_64_dynv0 - "
-                             : "\t.fae_unwinder __gnu_fae_unwinder_x86_64v0 - ";
+  const char *unwinder =
+      cur_fun_dat.used_alloca
+          ? "\t.fae_unwinder __gnu_fae_unwinder_x86_64_dynv0 - "
+          : "\t.fae_unwinder __gnu_fae_unwinder_x86_64v0 - ";
 
   fputs(unwinder, asm_out_file);
   // x86_64 mov is 5 bytes long.
@@ -209,6 +179,11 @@ static void assert_or_set(int expr, int &value) {
   }
 }
 
+static bool is_callee_saved(int regno);
+static void check_rtx(rtx_def *inner, int &regs, long &stack, int &saved_sp,
+               bool &has_saved_stack);
+
+static const char *format(rtx_code r);
 // todo use machine_frame info instead of stupid parsing
 // also need to handle floating point stack seperately
 unsigned int PassFae::execute(function *f) {
@@ -216,7 +191,6 @@ unsigned int PassFae::execute(function *f) {
 
   long stack = DEFAULT_INCOMING_FRAME_SP_OFFSET;
   int regs = 0;
-  int reg_length = 0;
   int saved_sp = 0;
   bool has_saved_stack = false;
 
@@ -232,47 +206,8 @@ unsigned int PassFae::execute(function *f) {
     }
 
     auto *inner = PATTERN(rtx);
-
-    auto in_code = GET_CODE(inner);
-    if (in_code == SET) {
-      auto reg = XEXP(inner, 1);
-      assert(GET_CODE(reg) == REG);
-
-      if (REGNO(reg) == STACK_POINTER_REGNUM) {
-        has_saved_stack = true;
-        saved_sp = REGNO(XEXP(inner, 0));
-        regs -= 1; // This means that BP has been saved
-      } else {
-        regs += 1;
-        auto regmode = GET_MODE_SIZE(GET_MODE(reg));
-        uint regsize;
-        gcc_assert(regmode.is_constant(&regsize));
-        assert_or_set(regsize, reg_length);
-        stack += regsize;
-      }
-
-    } else if (in_code == PARALLEL) {
-      // usually stack allocation is parallel because it clobbers stuff, but
-      // this needs testing for each platform
-      assert(XVECLEN(inner, 0) > 0);
-      auto alloc = XVECEXP(inner, 0, 0);
-      {
-        auto sp = XEXP(alloc, 0);
-        // ensuring we're adding to stack pointer
-        assert(GET_CODE(sp) == REG && XINT(sp, 0) == 7);
-      }
-      auto set_stack = XEXP(alloc, 1);
-      assert(GET_CODE(set_stack) == PLUS);
-      {
-        auto sp = XEXP(alloc, 0);
-        assert(GET_CODE(sp) == REG && XINT(sp, 0) == 7);
-      }
-      auto operand = XEXP(set_stack, 1);
-      assert(GET_CODE(operand) == CONST_INT);
-      // stack grows downwards
-      stack += XWINT(operand, 0) * -1;
-    }
-  }
+    check_rtx(inner, regs, stack, saved_sp, has_saved_stack);
+   }
 
   if (f->calls_alloca) {
     gcc_assert(has_saved_stack);
@@ -282,10 +217,68 @@ unsigned int PassFae::execute(function *f) {
   cur_fun_dat.regs = regs;
   cur_fun_dat.stack_usage = stack;
   cur_fun_dat.num = fnum++;
-  cur_fun_dat.used_alloca = has_saved_stack;
+  cur_fun_dat.used_alloca = f->calls_alloca;
   cur_fun_dat.sp_reg = saved_sp;
 
   return 0;
+}
+
+bool is_callee_saved(int regno) {
+  int regs[] = {3, 6, 40, 41, 42, 43};
+  for (int i = 0; i < 6; ++i) {
+    if (regno == regs[i])
+      return true;
+  }
+  return false;
+}
+
+
+int reg_length = 0;
+void check_rtx(rtx_def *inner, int &regs, long &stack, int &saved_sp,
+               bool &has_saved_stack) {
+  auto in_code = GET_CODE(inner);
+  if (in_code == SET) {
+    auto dst = XEXP(inner, 0);
+    auto src = XEXP(inner, 1);
+    if (GET_CODE(dst) == MEM) {
+      // We must be saving a register to stack
+      gcc_assert(GET_CODE(src) == REG);
+      if(!is_callee_saved(REGNO(src)))
+        return;
+      regs += 1;
+      auto regmode = GET_MODE_SIZE(GET_MODE(src));
+      uint regsize;
+      gcc_assert(regmode.is_constant(&regsize));
+      assert_or_set(regsize, reg_length);
+      stack += regsize;
+    } else {
+      // we must be either incrementing the stack pointer
+      // or saving it to base pointer
+      gcc_assert(GET_CODE(dst) == REG);
+      // register to register transfer must be stack to base save
+      if (GET_CODE(src) == REG) {
+        gcc_assert(REGNO(src) == STACK_POINTER_REGNUM);
+        has_saved_stack = true;
+        saved_sp = REGNO(XEXP(inner, 0));
+        regs -= 1;
+      } else {
+        gcc_assert(REGNO(dst) == STACK_POINTER_REGNUM);
+        gcc_assert(GET_CODE(src) == PLUS);
+        auto first_op = XEXP(src, 0);
+        gcc_assert(GET_CODE(first_op) == REG &&
+                   REGNO(first_op) == STACK_POINTER_REGNUM);
+        auto second_op = XEXP(src, 1);
+        gcc_assert(GET_CODE(second_op) == CONST_INT);
+        stack += -1 * XWINT(second_op, 0);
+      }
+    }
+  } else if (in_code == PARALLEL) {
+    // parse PARALLEL recursively since sometimes push clobber registers
+    int len = XVECLEN(inner, 0);
+    for (int i = 0; i < len; ++i) {
+      check_rtx(XVECEXP(inner, 0, i), regs, stack, saved_sp, has_saved_stack);
+    }
+  }
 }
 
 bool PassFae::gate(function *) {
@@ -294,6 +287,48 @@ bool PassFae::gate(function *) {
     return false;
   }
   return true;
+}
+
+static void emit_header(int regions, const char* ttypes);
+static void emit_regions(int regions, int section, int base);
+static void emit_action_records(int regions, int section, int base);
+
+void emit_fae_lsda(int section) {
+  gcc_assert(cur_fun_dat.name != NULL);
+  const int base =
+      call_site_base - crtl->eh.call_site_record_v[section]->length();
+
+  int regions = crtl->eh.call_site_record_v[section]->length();
+
+  switch_to_fae_lsda_section(cur_fun_dat.name);
+
+  auto l = create_lsda_label("FAEttypes");
+  cur_fun_dat.lsda_label = create_lsda_label("FAElsda");
+
+  emit_header(regions, l);
+  
+  emit_regions(regions, section, base);
+  emit_action_records(regions, section, base);
+
+  
+  ASM_OUTPUT_LABEL(asm_out_file, l);
+  int ttypes = vec_safe_length(cfun->eh->ttype_data);
+  if (ttypes)
+    assemble_align(BITS_PER_UNIT * 4);
+  for (int i = 0; i < ttypes; ++i) {
+    tree type = (*cfun->eh->ttype_data)[i];
+    output_ttype(type);
+  }
+  lsda_base += 1;
+}
+
+void emit_header(int regions, const char* ttypes) {
+  ASM_OUTPUT_LABEL(asm_out_file, cur_fun_dat.lsda_label);
+  assemble_string("fae1c++", 8);
+  fputs("\t.word ", asm_out_file);
+  fprint_whex(asm_out_file, regions);
+  fputc('\n', asm_out_file);
+  output_delta(ttypes, cur_fun_dat.lsda_label);  
 }
 
 void switch_to_fae_lsda_section(const char *fnname) {
