@@ -22,7 +22,7 @@
 // exactly as it looks. Emits .fae_start
 extern void emit_fae_start(void);
 // just like emit_fae_start, but emits .fae_end instead
-extern void emit_fae_end(void);
+extern void emit_fae_end(int is_end);
 // emits the simplified LSDA section for fae
 extern void emit_fae_lsda(int section);
 

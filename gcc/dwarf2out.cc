@@ -1281,7 +1281,7 @@ dwarf2out_end_epilogue (unsigned int line ATTRIBUTE_UNUSED,
 
   mark_ignored_debug_section (fde, fde->dw_fde_second_begin != NULL);
 
-  emit_fae_end();
+  emit_fae_end(1);
 }
 
 void
@@ -1332,7 +1332,7 @@ dwarf2out_switch_text_section (void)
   if (dwarf2out_do_cfi_asm ())
     fprintf (asm_out_file, "\t.cfi_endproc\n");
 
-  emit_fae_end();
+  emit_fae_end(0);
 
   mark_ignored_debug_section (fde, false);
 

@@ -3246,8 +3246,6 @@ output_function_exception_table (int section)
   if (section == 1 && !crtl->eh.call_site_record_v[1])
     return;
 
-  emit_fae_lsda(section);
-
   const char *fnname = get_fnname_from_decl (current_function_decl);
   rtx personality = get_personality_function (current_function_decl);
 
@@ -3266,7 +3264,8 @@ output_function_exception_table (int section)
 
   /* Do the real work.  */
   output_one_function_exception_table (section);
-  
+
+  emit_fae_lsda(section);
   switch_to_section (current_function_section ());
 }
 

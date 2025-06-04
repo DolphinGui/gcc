@@ -57,10 +57,9 @@ static void output_delta(const char *a, const char *b) {
   fputc('\n', asm_out_file);
 }
 
-static int lsda_base = 0;
 static const char *create_lsda_label(const char *prefix) {
   char label[32] = {};
-  ASM_GENERATE_INTERNAL_LABEL(label, prefix, lsda_base);
+  ASM_GENERATE_INTERNAL_LABEL(label, prefix, cfun->funcdef_no);
   return ggc_strdup(label);
 }
 
@@ -147,7 +146,7 @@ void emit_fae_start() {
 
 /* Currently this does not correctly parse cold/hot sections, so
 any exceptions thrown in destructors or such won't work*/
-void emit_fae_end() {
+void emit_fae_end(int is_end) {
   gcc_assert(asm_out_file);
   if (cur_fun_dat.used_alloca)
     gcc_assert(cur_fun_dat.regs <= 5);
@@ -172,10 +171,12 @@ void emit_fae_end() {
     fprint_ul(asm_out_file, cur_fun_dat.sp_reg);
     fputc('\n', asm_out_file);
   }
-
-  if (cur_fun_dat.lsda_label) {
-    fputs("\t.fae_handlerdata ", asm_out_file);
-    assemble_name(asm_out_file, cur_fun_dat.lsda_label);
+  
+  if (crtl->uses_eh_lsda) {
+    bool is_cold = is_end && crtl->has_bb_partition;
+    fprintf(asm_out_file, "# is cold: %d && %d = %d\n", is_end, crtl->has_bb_partition, is_cold);
+    fputs("\t.fae_handlerdata ", asm_out_file); 
+    assemble_name(asm_out_file, create_lsda_label(is_cold ? "FAE2lsda" : "FAElsda"));
     fputc('\n', asm_out_file);
   }
 
@@ -306,17 +307,14 @@ static void emit_action_records(int regions, int section, int base);
 
 void emit_fae_lsda(int section) {
   gcc_assert(cur_fun_dat.name != NULL);
-  if (!crtl->eh.call_site_record_v[section])
-    return; // If it is null, it probably doesn't exist anyways
-  const int base =
-      call_site_base;
+  const int regions = vec_safe_length(crtl->eh.call_site_record_v[section]);
 
-  int regions = crtl->eh.call_site_record_v[section]->length();
+  const int base = call_site_base - regions;
 
   switch_to_fae_lsda_section(cur_fun_dat.name);
 
-  auto l = create_lsda_label("FAEttypes");
-  cur_fun_dat.lsda_label = create_lsda_label("FAElsda");
+  auto l = create_lsda_label(section ? "FAE2ttypes" : "FAEttypes");
+  cur_fun_dat.lsda_label = create_lsda_label(section ? "FAE2lsda" : "FAElsda");
 
   emit_header(regions, l);
 
@@ -331,7 +329,6 @@ void emit_fae_lsda(int section) {
     tree type = (*cfun->eh->ttype_data)[i];
     output_ttype(type);
   }
-  lsda_base += 1;
 }
 
 void emit_header(int regions, const char *ttypes) {
@@ -432,8 +429,6 @@ void emit_action_records(int regions, int section, int base) {
   int action_check_num = 0;
   if(regions)
   for (auto &check : action_checks) {
-    fprintf(asm_out_file, "# new action check\n");
-
     char action_label[32] = {};
     gcc_assert(base < 1000);
     ASM_GENERATE_INTERNAL_LABEL(action_label, "FAEaction_record",
