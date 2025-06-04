@@ -4,9 +4,8 @@
    but for now this will do*/
 
 .ident "GNU C++ x86_64 fae unwinder"
-
+.section .note.GNU-stack,"",@progbits
 .text
-
 .globl __gnu_fae_unwinder_x86_64v0
 .type __gnu_fae_unwinder_x86_64v0,@function
 

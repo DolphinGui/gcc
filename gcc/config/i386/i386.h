@@ -3026,7 +3026,7 @@ extern enum attr_cpu ix86_schedule;
 /* __builtin_eh_return can't handle stack realignment, so disable MMX/SSE
    in 32-bit libgcc functions that call it.  */
 #ifndef __x86_64__
-#define LIBGCC2_UNWIND_ATTRIBUTE __attribute__((target ("no-mmx,no-sse")))
+#define LIBGCC2_UNWIND_ATTRIBUTE __attribute__((target ("no-mmx,no-sse"))) __attribute__((weak))
 #endif
 
 /*

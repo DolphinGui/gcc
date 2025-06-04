@@ -28,6 +28,7 @@
 #include <cxxabi.h>
 #include "unwind-cxx.h"
 
+#if 0
 
 using namespace __cxxabiv1;
 
@@ -817,3 +818,4 @@ __gxx_personality_seh0 (PEXCEPTION_RECORD ms_exc, void *this_frame,
 #endif /* SEH */
 
 } // namespace __cxxabiv1
+#endif

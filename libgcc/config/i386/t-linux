@@ -6,7 +6,6 @@ SHLIB_MAPFILES = libgcc-std.ver $(srcdir)/config/i386/libgcc-glibc.ver
 HOST_LIBGCC2_CFLAGS += -mlong-double-80 -DUSE_ELF_SYMVER $(CET_FLAGS)
 CRTSTUFF_T_CFLAGS += $(CET_FLAGS)
 
-# This is the fae stuff
-LIB2ADDEH += $(srcdir)/unwind-fae-sup.c $(srcdir)/config/i386/unwind-routine.S \
-   $(srcdir)/config/i386/64/fae-unwinder.S  $(srcdir)/config/i386/64/fae-unwinder-dyn.S
-
+LIB2ADDEH = $(srcdir)/unwind-fae-sup.c $(srcdir)/config/i386/stub.c \
+	$(srcdir)/config/i386/64/fae-unwinder.S  $(srcdir)/config/i386/64/fae-unwinder-dyn.S \
+	$(srcdir)/config/i386/unwind-routine.S 

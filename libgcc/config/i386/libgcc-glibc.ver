@@ -235,6 +235,8 @@ GCC_14.0.0 {
   __floatbitinthf
   __floatbitintxf
   __floatbitinttf
+  __gnu_fae_unwinder_x86_64v0
+  __gnu_fae_unwinder_x86_64_dynv0
 }
 
 # Please notify the maintainers of libgcc-{bsd,darwin,sol2}.ver of any

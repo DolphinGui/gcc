@@ -1,5 +1,5 @@
 .ident "GNU C++ x86_64 unwinding routine"
-
+.section .note.GNU-stack,"",@progbits
 .data
 except_ptr:
   .zero 8
@@ -12,16 +12,17 @@ except_ptr:
 	.global	_Unwind_RaiseException
 	.type	_Unwind_RaiseException, @function
 
-unknown_func:
-  call __gxx_x86_terminate
+_Unwind_Resume:
+.unknown_func:
+  ud2
 
 _Unwind_Resume_or_Rethrow:
 _Unwind_RaiseException:
+  ud2
   movq %rdi, except_ptr(%rip)
 .tailcall:
   popq %rax
   movq except_ptr(%rip), %rdi
   call __fae_get_ptr
-
 
 

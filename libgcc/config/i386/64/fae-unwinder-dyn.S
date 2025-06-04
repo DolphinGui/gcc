@@ -3,9 +3,8 @@
    necessitating another unwinder routine */
 
 .ident "GNU C++ x86_64 fae unwinder for dynamic stack"
-
+.section .note.GNU-stack,"",@progbits
 .text
-
 .globl __gnu_fae_unwinder_x86_64_dynv0
 .type __gnu_fae_unwinder_x86_64_dynv0,@function
 
