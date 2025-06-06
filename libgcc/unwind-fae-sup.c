@@ -6,7 +6,7 @@
 #include "unwind-fae-sup.h"
 
 #define fassert(expr)                                                          \
-  if (expr)                                                                    \
+  if (!(expr))                                                                    \
     __builtin_trap()
 
 extern const fae_table_entry __fae_table_start[];
@@ -28,7 +28,7 @@ void  __fae_get_ptr(find_ptr_result* out,struct _Unwind_Exception *except,
       // For now we only support c++ personalities. Maybe hypothetically
       // different language runtimes will use different personalities, but
       // for now we only support c++.
-      fassert(data->lsda->ident != 0x2b2b6331656166);
+      fassert(data->lsda->ident == 0x2b2b6331656166);
       out->result = data;
       out->r = __fae_personality_v1(data->lsda, except);
       return;
