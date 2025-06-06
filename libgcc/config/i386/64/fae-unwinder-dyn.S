@@ -8,12 +8,12 @@
 .globl __gnu_fae_unwinder_x86_64_dynv0
 .type __gnu_fae_unwinder_x86_64_dynv0,@function
 
+ __gnu_fae_unwinder_x86_64_dynv0:
   movq 48(%rsp), %r15
   movq 40(%rsp), %r14
   movq 32(%rsp), %r13
   movq 24(%rsp), %r12
   movq  8(%rsp), %rbx
- __gnu_fae_unwinder_x86_64_dynv0:
   pop %rbp
   jmp __fae_finish_unwinding
 

@@ -154,17 +154,18 @@ void emit_fae_end(int is_end) {
     gcc_assert(cur_fun_dat.regs <= 6);
 
   const char *unwinder = cur_fun_dat.used_alloca
-                             ? "\t.fae_unwinder __gnu_fae_unwinder_x86_64_dynv0 - "
-                             : "\t.fae_unwinder __gnu_fae_unwinder_x86_64v0 - ";
-
+                             ? "\t.fae_unwinder __gnu_fae_unwinder_x86_64_dynv0 + "
+                             : "\t.fae_unwinder __gnu_fae_unwinder_x86_64v0 + ";
+  const int unwind_offset = (cur_fun_dat.used_alloca ? 5 : 6) - cur_fun_dat.regs;
+  gcc_assert(unwind_offset >= 0);
   fputs(unwinder, asm_out_file);
   // x86_64 mov is 5 bytes long.
-  fprint_whex(asm_out_file, cur_fun_dat.regs * 5);
+  fprint_ul(asm_out_file, unwind_offset * 5);
   fputc('\n', asm_out_file);
 
   if (!cur_fun_dat.used_alloca) {
     fputs("\t.fae_stacksize ", asm_out_file);
-    fprint_whex(asm_out_file, cur_fun_dat.stack_usage);
+    fprint_ul(asm_out_file, cur_fun_dat.stack_usage);
     fputc('\n', asm_out_file);
   } else {
     fputs("\t.fae_save_sp ", asm_out_file);
@@ -174,7 +175,6 @@ void emit_fae_end(int is_end) {
   
   if (crtl->uses_eh_lsda) {
     bool is_cold = is_end && crtl->has_bb_partition;
-    fprintf(asm_out_file, "# is cold: %d && %d = %d\n", is_end, crtl->has_bb_partition, is_cold);
     fputs("\t.fae_handlerdata ", asm_out_file); 
     assemble_name(asm_out_file, create_lsda_label(is_cold ? "FAE2lsda" : "FAElsda"));
     fputc('\n', asm_out_file);
@@ -201,11 +201,11 @@ static const char *format(rtx_code r);
 unsigned int PassFae::execute(function *f) {
   gcc_assert(DECL_ASSEMBLER_NAME_SET_P(f->decl));
 
-  long stack = DEFAULT_INCOMING_FRAME_SP_OFFSET;
+  long stack = 0;
   int regs = 0;
   int saved_sp = 0;
   bool has_saved_stack = false;
-
+  
   for (rtx_insn *rtx = get_insns(); rtx; rtx = NEXT_INSN(rtx)) {
     rtx_code code = GET_CODE(rtx);
     // we are not interested in code body or epilogue
@@ -254,9 +254,8 @@ void check_rtx(rtx_def *inner, int &regs, long &stack, int &saved_sp,
     if (GET_CODE(dst) == MEM) {
       // We must be saving a register to stack
       gcc_assert(GET_CODE(src) == REG);
-      if (!is_callee_saved(REGNO(src)))
-        return;
-      regs += 1;
+      if (is_callee_saved(REGNO(src)))
+        regs += 1;
       auto regmode = GET_MODE_SIZE(GET_MODE(src));
       uint regsize;
       gcc_assert(regmode.is_constant(&regsize));
@@ -335,7 +334,7 @@ void emit_header(int regions, const char *ttypes) {
   ASM_OUTPUT_LABEL(asm_out_file, cur_fun_dat.lsda_label);
   assemble_string("fae1c++", 8);
   fputs("\t.word ", asm_out_file);
-  fprint_whex(asm_out_file, regions);
+  fprint_ul(asm_out_file, regions);
   fputc('\n', asm_out_file);
   output_delta(ttypes, cur_fun_dat.lsda_label);
 }
@@ -437,7 +436,7 @@ void emit_action_records(int regions, int section, int base) {
     ++action_check_num;
     for (auto filter : check) {
       fputs("\t.byte ", asm_out_file);
-      fprint_whex(asm_out_file, filter);
+      fprint_ul(asm_out_file, filter);
       fputc('\n', asm_out_file);
     }
   }
