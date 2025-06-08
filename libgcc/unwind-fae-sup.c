@@ -21,16 +21,21 @@ void  __fae_get_ptr(find_ptr_result* out,struct _Unwind_Exception *except,
       fae_data_entry *data = it->data;
       if (!data->lsda) {
         out->result = data;
-        out->r.lp = 0;
-        out->r.lp_arg = 0xffffffff;
+        
+        out->lp = 0;
+        out->lp_arg = 0xffffffff;
         return;
       }
       // For now we only support c++ personalities. Maybe hypothetically
       // different language runtimes will use different personalities, but
       // for now we only support c++.
-      fassert(data->lsda->ident == 0x2b2b6331656166);
+      personality_fn* personality = (personality_fn*) data->lsda->personality;
       out->result = data;
-      out->r = __fae_personality_v1(data->lsda, except);
+      personality_result r;
+      r = personality(pc - it->begin, data->lsda, except);
+      out->lp = it->begin + r.lp;
+      out->lp_arg = r.lp_arg;
+      out->_reserved = r._reserved;
       return;
     }
   }

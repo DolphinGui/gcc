@@ -36,10 +36,12 @@ along with GCC; see the file COPYING3.  If not see
 #define LINK_SPEC \
   LINUX_OR_ANDROID_LD (GNU_USER_TARGET_LINK_SPEC, \
 		       GNU_USER_TARGET_LINK_SPEC " " ANDROID_LINK_SPEC)
-
+/* If gc-sections is not added, then the linker will complain about definitions
+ * in discarded sections being used (no idea how sections are being discarded
+ *                                   without gc-sections on, but whatever)*/
 #undef  LIB_SPEC
 #define LIB_SPEC \
-  LINUX_OR_ANDROID_LD (GNU_USER_TARGET_LIB_SPEC, \
+  "--gc-sections" LINUX_OR_ANDROID_LD (GNU_USER_TARGET_LIB_SPEC, \
 		    GNU_USER_TARGET_NO_PTHREADS_LIB_SPEC " " ANDROID_LIB_SPEC)
 
 #undef  STARTFILE_SPEC

@@ -1163,6 +1163,9 @@ c_cpp_builtins (cpp_reader *pfile)
   if (targetm_common.except_unwind_info (&global_options) == UI_SJLJ)
     cpp_define (pfile, "__USING_SJLJ_EXCEPTIONS__");
 
+  /* This really should be gated behind options, but for now this is unconditional */
+  cpp_define (pfile, "__USING_FAE_EXCEPTIONS__");
+
   /* limits.h and stdint.h need to know these.  */
   builtin_define_type_max ("__SCHAR_MAX__", signed_char_type_node);
   builtin_define_type_max ("__SHRT_MAX__", short_integer_type_node);

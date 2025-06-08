@@ -1,12 +1,16 @@
 #ifndef UNWIND_SUP_H
 #define UNWIND_SUP_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "unwind-generic.h"
 
 typedef unsigned short u16;
 
 typedef struct {
-  unsigned long ident;
+  void* personality;
 }lsda_head;
 
 typedef struct {
@@ -22,17 +26,26 @@ typedef struct {
 } fae_table_entry;
 
 typedef struct {
-  void* lp;
+  unsigned long lp; // the personality only actually returns an offset.
   unsigned lp_arg;
   unsigned _reserved;
 } personality_result;
 
 typedef struct {
   fae_data_entry *result;
-  personality_result r;
+  const char* lp;
+  unsigned lp_arg;
+  unsigned _reserved;
 } find_ptr_result;
-/* The C++-like personality. Prohibited from using values over 2 ^ 16, although
- * I doubt you'll have that many types. */
-personality_result __fae_personality_v1(void *lsda, void *exception);
+
+/* The personality function signature. The first thing in the LSDA section. Shouldn't be null. */ 
+typedef personality_result (personality_fn)(unsigned long pc_offset, void *lsda, void *exception);
+
 void __fae_get_ptr(find_ptr_result* out, struct _Unwind_Exception *except, const char *pc);
+
+#ifdef __cplusplus
+}
+#endif
+
+
 #endif

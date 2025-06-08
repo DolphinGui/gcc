@@ -53,7 +53,8 @@ __fae_finish_unwinding: /* This is called from the unwinder */
   jz .no_lp
   movq %rdx, return_values(%rip)
   movq %rsp, return_values+8(%rip)
-  movl %eax, %eax /* TODO: Change this to actual LP register */
+  movl %eax, %edx /* load caught type index */
+  movq except_ptr(%rip), %rax /*load exception ptr */
   jmp *%rcx /* Jump into landing pad */
 
 /* We assume _Unwind_Resume is called from launch pads which should save

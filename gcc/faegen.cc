@@ -320,10 +320,10 @@ void emit_fae_lsda(int section) {
   emit_regions(regions, section, base);
   emit_action_records(regions, section, base);
 
-  ASM_OUTPUT_LABEL(asm_out_file, l);
   int ttypes = vec_safe_length(cfun->eh->ttype_data);
   if (ttypes)
     assemble_align(BITS_PER_UNIT * 4);
+  ASM_OUTPUT_LABEL(asm_out_file, l);
   for (int i = 0; i < ttypes; ++i) {
     tree type = (*cfun->eh->ttype_data)[i];
     output_ttype(type);
@@ -332,7 +332,7 @@ void emit_fae_lsda(int section) {
 
 void emit_header(int regions, const char *ttypes) {
   ASM_OUTPUT_LABEL(asm_out_file, cur_fun_dat.lsda_label);
-  assemble_string("fae1c++", 8);
+  fputs("\t.quad __fae_cpp_personality1\n", asm_out_file); 
   fputs("\t.word ", asm_out_file);
   fprint_ul(asm_out_file, regions);
   fputc('\n', asm_out_file);
@@ -390,7 +390,7 @@ void emit_regions(int regions, int section, int base) {
                                   CODE_LABEL_NUMBER(callsite.landing_pad));
 
     output_delta(start, func_begin);
-    output_delta(end, start);
+    output_delta(end, func_begin);
     if (callsite.landing_pad)
       output_delta(landing_pad, func_begin);
     else

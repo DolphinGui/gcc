@@ -142,7 +142,11 @@ extern _Unwind_Reason_Code LIBGCC2_UNWIND_ATTRIBUTE
 _Unwind_ForcedUnwind (struct _Unwind_Exception *, _Unwind_Stop_Fn, void *);
 
 /* Helper to invoke the exception_cleanup routine.  */
-extern void _Unwind_DeleteException (struct _Unwind_Exception *);
+inline void _Unwind_DeleteException (struct _Unwind_Exception *exc){
+  if (exc->exception_cleanup)
+    (*exc->exception_cleanup) (_URC_FOREIGN_EXCEPTION_CAUGHT, exc);
+}
+
 
 /* Resume propagation of an existing exception.  This is used after
    e.g. executing cleanup code, and not to implement rethrowing.  */

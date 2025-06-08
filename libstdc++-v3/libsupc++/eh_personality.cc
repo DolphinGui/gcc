@@ -22,18 +22,17 @@
 // see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 // <http://www.gnu.org/licenses/>.
 
-#include <bits/c++config.h>
-#include <cstdlib>
-#include <bits/exception_defines.h>
-#include <cxxabi.h>
 #include "unwind-cxx.h"
-
-#if 0
+#include <bits/c++config.h>
+#include <bits/exception_defines.h>
+#include <cstdlib>
+#include <cxxabi.h>
 
 using namespace __cxxabiv1;
 
 #include "unwind-pe.h"
 
+#ifndef __USING_FAE_EXCEPTIONS__
 
 struct lsda_header_info
 {
@@ -112,9 +111,8 @@ get_ttype_entry (lsda_header_info *info, _uleb128_t i)
 
 // The ABI provides a routine for matching exception object types.
 typedef _Unwind_Control_Block _throw_typet;
-#define get_adjusted_ptr(catch_type, throw_type, thrown_ptr_p) \
-  (__cxa_type_match (throw_type, catch_type, false, thrown_ptr_p) \
-   != ctm_failed)
+#define get_adjusted_ptr(catch_type, throw_type, thrown_ptr_p)                 \
+  (__cxa_type_match(throw_type, catch_type, false, thrown_ptr_p) != ctm_failed)
 
 // Return true if THROW_TYPE matches one if the filter types.
 
@@ -191,14 +189,12 @@ restore_caught_exception(struct _Unwind_Exception* ue_header,
   landing_pad = (_Unwind_Ptr) ue_header->barrier_cache.bitpattern[3];
 }
 
-#define CONTINUE_UNWINDING \
-  do								\
-    {								\
-      if (__gnu_unwind_frame(ue_header, context) != _URC_OK)	\
-	return _URC_FAILURE;					\
-      return _URC_CONTINUE_UNWIND;				\
-    }								\
-  while (0)
+#define CONTINUE_UNWINDING                                                     \
+  do {                                                                         \
+    if (__gnu_unwind_frame(ue_header, context) != _URC_OK)                     \
+      return _URC_FAILURE;                                                     \
+    return _URC_CONTINUE_UNWIND;                                               \
+  } while (0)
 
 // Return true if the filter spec is empty, ie throw().
 
@@ -337,15 +333,15 @@ namespace __cxxabiv1
 // Using a different personality function name causes link failures
 // when trying to mix code using different exception handling models.
 #ifdef __USING_SJLJ_EXCEPTIONS__
-#define PERSONALITY_FUNCTION	__gxx_personality_sj0
+#define PERSONALITY_FUNCTION __gxx_personality_sj0
 #define __builtin_eh_return_data_regno(x) x
 #elif defined(__SEH__)
-#define PERSONALITY_FUNCTION	__gxx_personality_imp
+#define PERSONALITY_FUNCTION __gxx_personality_imp
 #else
-#define PERSONALITY_FUNCTION	__gxx_personality_v0
+#define PERSONALITY_FUNCTION __gxx_personality_v0
 #endif
 
-#if defined (__SEH__) && !defined (__USING_SJLJ_EXCEPTIONS__)
+#if defined(__SEH__) && !defined(__USING_SJLJ_EXCEPTIONS__)
 static
 #else
 extern "C"
@@ -806,7 +802,7 @@ __cxa_call_unexpected (void *exc_obj_in)
 }
 #endif
 
-#if defined (__SEH__) && !defined (__USING_SJLJ_EXCEPTIONS__)
+#if defined(__SEH__) && !defined(__USING_SJLJ_EXCEPTIONS__)
 extern "C"
 EXCEPTION_DISPOSITION
 __gxx_personality_seh0 (PEXCEPTION_RECORD ms_exc, void *this_frame,
@@ -818,4 +814,82 @@ __gxx_personality_seh0 (PEXCEPTION_RECORD ms_exc, void *this_frame,
 #endif /* SEH */
 
 } // namespace __cxxabiv1
+
+#else
+
+#include "unwind-fae-sup.h"
+
+struct lsda_region {
+  u16 begin_offset; // The beginning of the region, offset from function start
+  u16 end_offset;   // The end of the region, offset from function start
+  u16 lp_offset;    // The landing pad, offset from function start
+  u16 action;       // The action sequence, offset from lsda label
+};
+
+struct lsda_entry {
+  unsigned long ident;
+  u16 region_count; /* The number of regions there are */
+  u16 ttype_offset; /* The start of ttype offset by lsda */
+  lsda_region regions[];
+};
+
+static void *get_adjusted_ptr(void *exc, const std::type_info *catch_type) noexcept;
+namespace __cxxabiv1{
+extern "C" personality_result __fae_cpp_personality1(unsigned long pc_offset, void *l,
+                                        void *exception){
+  personality_result r = {};
+  const lsda_entry* lsda = static_cast<const lsda_entry*>(l);
+  const char* action_base = static_cast<const char*>(l);
+  const unsigned* ttypes = reinterpret_cast<const unsigned*>(action_base + lsda->ttype_offset);
+  for(int i = 0; i < lsda->region_count; ++i){
+    const lsda_region* region = lsda->regions + i;
+    if(region->begin_offset < pc_offset && pc_offset <= region->end_offset){
+      r.lp = region->lp_offset;
+      if(region->action == 0) // No actions, must be cleanup
+        return r;
+      unsigned action_index = 1;
+      for(const char* action = action_base + region->action; *action != 0; ++action){
+        char act = *action;
+        if(act == 0)
+          break; // catch all or cleanup, matches everything
+        const std::type_info* ttype = reinterpret_cast<const std::type_info*>(ttypes[act - 1]);
+        void* adjusted_ptr = get_adjusted_ptr(exception, ttype);
+        if(adjusted_ptr)
+          break;
+        ++action_index;
+      }
+      r.lp_arg = action_index;
+      return r;
+    }
+  }
+  // No call site entry found. Terminate
+  std::terminate();
+}
+}
+static void *get_adjusted_ptr(const void *c, const std::type_info *t,
+                              void *thrown_ptr) noexcept {
+  auto catch_type = static_cast<const std::type_info *>(c);
+  auto throw_type = static_cast<const std::type_info *>(t);
+  if (throw_type->__is_pointer_p())
+    thrown_ptr = *(void **)thrown_ptr;
+
+  if (catch_type->__do_catch(throw_type, &thrown_ptr, 1)) {
+    return thrown_ptr;
+  }
+
+  return nullptr;
+}
+
+static void *get_adjusted_ptr(void *exc,
+                                         const std::type_info *catch_type) noexcept {
+  auto ue = static_cast<_Unwind_Exception *>(exc);
+  auto cxa_except = __get_exception_header_from_ue(ue);
+  auto thrown_obj = __get_object_from_ue(ue);
+  auto thrown_type = cxa_except->exceptionType;
+  cxa_except->adjustedPtr =
+      get_adjusted_ptr(catch_type, thrown_type, thrown_obj);
+  return cxa_except->adjustedPtr;
+}
+
+
 #endif
