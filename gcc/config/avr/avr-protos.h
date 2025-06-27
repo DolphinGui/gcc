@@ -89,6 +89,7 @@ extern rtx avr_to_int_mode (rtx);
 extern void avr_expand_prologue (void);
 extern void avr_expand_epilogue (bool);
 extern rtx avr_eh_return_handler_rtx (void);
+extern void avr_output_handlerdata(void);
 extern bool avr_emit_cpymemhi (rtx*);
 extern int avr_epilogue_uses (int regno);
 

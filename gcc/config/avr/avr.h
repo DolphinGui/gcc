@@ -535,6 +535,7 @@ extern const char *avr_no_devlib (int, const char**);
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL)           (DW_EH_PE_absptr)
 #define EH_RETURN_HANDLER_RTX avr_eh_return_handler_rtx ()
 
+#define EH_LSDA_POST avr_output_handlerdata ()
 
 #define DWARF2_ADDR_SIZE 4
 

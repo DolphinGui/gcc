@@ -2952,6 +2952,7 @@ switch_to_exception_section (const char * ARG_UNUSED (fnname))
     }
 
   switch_to_section (s);
+  EH_LSDA_POST;
 }
 
 /* Output a reference from an exception table to the type_info object TYPE.

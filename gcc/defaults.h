@@ -393,6 +393,11 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define EH_RETURN_DATA_REGNO(N) INVALID_REGNUM
 #endif
 
+/* A hook for adding stuff after the LSDA section has been switched to */
+#ifndef EH_LSDA_POST
+#define EH_LSDA_POST
+#endif
+
 /* Offset between the eh handler address and entry in eh tables.  */
 #ifndef RETURN_ADDR_OFFSET
 #define RETURN_ADDR_OFFSET 0

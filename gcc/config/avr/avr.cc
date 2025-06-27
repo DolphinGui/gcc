@@ -1517,13 +1517,25 @@ avr_output_fn_unwind (FILE * f, bool prologue)
     && (TREE_NOTHROW (current_function_decl)
         || crtl->all_throwers_are_sibcalls))
   fputs("\t.cantunwind\n", f);
-      fputs ("\t.fnstart\n", f);}
-  else
+      fputs ("\t.fnstart\n", f);
+
+ if(crtl->uses_eh_lsda)
+        fputs("\t.personality\t__avr_cxx_personality\n", f);
+
+  }
+
+       else
     {
      
 
       fputs ("\t.fnend\n", f);
     }
+}
+
+
+#define EH_LSDA_POST avr_output_handlerdata()
+void avr_output_handlerdata(void){
+  output_section_asm_op(".handlerdata\n");
 }
 
 /*  Emit unwind directives for a SET.  */
@@ -10989,7 +11001,7 @@ avr_output_bss_section_asm_op (const char *data)
   avr_need_clear_bss_p = true;
 
   /* Dispatch to default.  */
-  output_section_asm_op (data);
+  output_section_asm_op  (data);
 }
 
 
@@ -11055,14 +11067,12 @@ avr_output_addr_attrib (tree decl, const char *name,
 
 
 /* Implement `TARGET_ASM_INIT_SECTIONS'.  */
-
 static void
 avr_asm_init_sections (void)
 {
   /* Override section callbacks to keep track of `avr_need_clear_bss_p'
      resp. `avr_need_copy_data_p'.  If flash is not mapped to RAM then
-     we have also to track .rodata because it is located in RAM then.  */
-
+     we have also to track .rodata because it is located in RAM then.  */ 
 #if defined HAVE_LD_AVR_AVRXMEGA3_RODATA_IN_FLASH
   if (avr_arch->flash_pm_offset == 0)
 #endif
