@@ -96,6 +96,7 @@ struct personality_out{
 extern "C" __attribute__((noreturn)) void __avr_terminate();
 
 // this is very bad, and probably should be rewritten in assembly for speed/size
+__attribute__((__used__))
 extern "C" uint8_t __avr_cxx_personality(prog_byte *ptr, uint16_t pc_offset, void *exc,
                            personality_out *out) noexcept {
   uint8_t lp_encoding = get(ptr++);
