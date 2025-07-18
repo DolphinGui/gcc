@@ -205,19 +205,20 @@ unsigned int PassFae::execute(function *f) {
   int regs = 0;
   int saved_sp = 0;
   bool has_saved_stack = false;
-  
+
   for (rtx_insn *rtx = get_insns(); rtx; rtx = NEXT_INSN(rtx)) {
     rtx_code code = GET_CODE(rtx);
     // we are not interested in code body or epilogue
-    if (code == NOTE && NOTE_KIND(rtx) == NOTE_INSN_PROLOGUE_END) {
+    if (code == NOTE && NOTE_KIND(rtx) == NOTE_INSN_EPILOGUE_BEG) {
       break;
-    }
-    // only interested in frame manipulation instructions
-    if (!RTX_FLAG(rtx, frame_related) || code != INSN) {
+    } 
+
+    // only interested in instructions
+    if (code != INSN) {
       continue;
     }
-
     auto *inner = PATTERN(rtx);
+
     check_rtx(inner, regs, stack, saved_sp, has_saved_stack);
   }
 
@@ -225,13 +226,13 @@ unsigned int PassFae::execute(function *f) {
     gcc_assert(has_saved_stack);
   }
 
+  
   cur_fun_dat.name = IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(f->decl));
   cur_fun_dat.regs = regs;
   cur_fun_dat.stack_usage = stack;
   cur_fun_dat.num = fnum++;
   cur_fun_dat.used_alloca = f->calls_alloca;
   cur_fun_dat.sp_reg = saved_sp;
-
   return 0;
 }
 
@@ -251,29 +252,54 @@ void check_rtx(rtx_def *inner, int &regs, long &stack, int &saved_sp,
   if (in_code == SET) {
     auto dst = XEXP(inner, 0);
     auto src = XEXP(inner, 1);
-    if (GET_CODE(dst) == MEM) {
+    if (MEM_P(dst)) {
       // We must be saving a register to stack
-      gcc_assert(GET_CODE(src) == REG);
-      if (is_callee_saved(REGNO(src)))
-        regs += 1;
-      auto regmode = GET_MODE_SIZE(GET_MODE(src));
-      uint regsize;
-      gcc_assert(regmode.is_constant(&regsize));
-      assert_or_set(regsize, reg_length);
-      stack += regsize;
+      auto inner_dst = XEXP(dst, 0);
+      auto inner_code = GET_CODE(inner_dst);
+      if (inner_code != PRE_MODIFY && inner_code != PRE_INC && inner_code != PRE_DEC){
+        return;
+      }
+      auto ii_dst = XEXP(inner_dst, 0);
+      if(!REG_P(ii_dst) || REGNO(ii_dst) != STACK_POINTER_REGNUM){
+        return;
+      }
+      if(REG_P(src)){
+        if (is_callee_saved(REGNO(src)))
+          regs += 1;
+      }
+      int size = 0;
+      if(inner_code == PRE_DEC || inner_code == PRE_INC){
+        auto regmode = GET_MODE_SIZE(GET_MODE(src)); 
+        gcc_assert(regmode.is_constant(&size));      
+      }else{
+        // must be PRE_MODIFY, which specifies size bc src may not have a size
+        auto plus = XEXP(inner_dst, 1);
+        gcc_assert(GET_CODE(plus) == PLUS);
+        auto lhs = XEXP(plus, 0);
+        gcc_assert(REG_P(lhs) && REGNO(lhs) == STACK_POINTER_REGNUM);
+        auto amount = XEXP(plus, 1);
+        gcc_assert(CONST_INT_P(amount));
+        size = XINT(amount, 0) * -1; // todo correct for upwards stacks 
+      }
+      gcc_assert(size != 0);
+      stack += size;
     } else {
       // we must be either incrementing the stack pointer
       // or saving it to base pointer
       gcc_assert(GET_CODE(dst) == REG);
       // register to register transfer must be stack to base save
       if (GET_CODE(src) == REG) {
-        gcc_assert(REGNO(src) == STACK_POINTER_REGNUM);
+        // sometimes GCC will move registers around that aren't stack pointers
+        // we don't care about those
+        if(REGNO(src) != STACK_POINTER_REGNUM)
+          return;
         has_saved_stack = true;
         saved_sp = REGNO(XEXP(inner, 0));
         regs -= 1;
       } else {
+        if(REGNO(dst) != STACK_POINTER_REGNUM)
+          return;
 
-        gcc_assert(REGNO(dst) == STACK_POINTER_REGNUM);
         gcc_assert(GET_CODE(src) == PLUS);
         auto first_op = XEXP(src, 0);
         gcc_assert(GET_CODE(first_op) == REG &&
