@@ -209,12 +209,12 @@ unsigned int PassFae::execute(function *f) {
   for (rtx_insn *rtx = get_insns(); rtx; rtx = NEXT_INSN(rtx)) {
     rtx_code code = GET_CODE(rtx);
     // we are not interested in code body or epilogue
-    if (code == NOTE && NOTE_KIND(rtx) == NOTE_INSN_EPILOGUE_BEG) {
+    if (code == NOTE && NOTE_KIND(rtx) == NOTE_INSN_PROLOGUE_END) {
       break;
     } 
 
     // only interested in instructions
-    if (code != INSN) {
+    if (code != INSN || RTX_FRAME_RELATED_P(rtx) ) {
       continue;
     }
     auto *inner = PATTERN(rtx);
