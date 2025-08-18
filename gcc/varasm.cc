@@ -7512,7 +7512,7 @@ default_unique_section (tree decl, int reloc)
 {
   /* We only need to use .gnu.linkonce if we don't have COMDAT groups.  */
   bool one_only = DECL_ONE_ONLY (decl) && !HAVE_COMDAT_GROUP;
-  const char *prefix, *name, *linkonce;
+  const char *prefix, *name, *linkonce, *unwindable;
   char *string;
   tree id;
 
@@ -7574,6 +7574,10 @@ default_unique_section (tree decl, int reloc)
       gcc_unreachable ();
     }
 
+    fprintf(stderr, "nothrow of %s: %d\n", DECL_ASSEMBLER_NAME (decl), TREE_NOTHROW(decl));
+    unwindable = TREE_NOTHROW(decl) ? ".nothrow" : "";
+
+
   id = DECL_ASSEMBLER_NAME (decl);
   ultimate_transparent_alias_target (&id);
   name = IDENTIFIER_POINTER (id);
@@ -7583,7 +7587,7 @@ default_unique_section (tree decl, int reloc)
      prefix to the section name.  */
   linkonce = one_only ? ".gnu.linkonce" : "";
 
-  string = ACONCAT ((linkonce, prefix, ".", name, NULL));
+  string = ACONCAT ((linkonce, prefix, unwindable, ".", name, NULL));
 
   set_decl_section_name (decl, string);
 }

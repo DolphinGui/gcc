@@ -138,7 +138,7 @@ struct GTY(()) PassFae final : rtl_opt_pass {
 
 rtl_opt_pass *make_pass_faegen(gcc::context *ct) { return new PassFae(ct); }
 
-void emit_fae_start() {
+void emit_fae_start(bool) {
   gcc_assert(asm_out_file);
   gcc_assert(cur_fun_dat.name != NULL);
   fprintf(asm_out_file, "\t.fae_start\n");
@@ -146,22 +146,35 @@ void emit_fae_start() {
 
 /* Currently this does not correctly parse cold/hot sections, so
 any exceptions thrown in destructors or such won't work*/
-void emit_fae_end(int is_end) {
+void emit_fae_end(bool is_end) {
   gcc_assert(asm_out_file);
   if (cur_fun_dat.used_alloca)
     gcc_assert(cur_fun_dat.regs <= 5);
   else
     gcc_assert(cur_fun_dat.regs <= 6);
 
-  const char *unwinder = cur_fun_dat.used_alloca
-                             ? "\t.fae_unwinder __gnu_fae_unwinder_x86_64_dynv0 + "
-                             : "\t.fae_unwinder __gnu_fae_unwinder_x86_64v0 + ";
-  const int unwind_offset = (cur_fun_dat.used_alloca ? 5 : 6) - cur_fun_dat.regs;
+  const char *unwinder =
+      cur_fun_dat.used_alloca
+          ? "\t.fae_unwinder __gnu_fae_unwinder_x86_64_dynv0 + "
+          : "\t.fae_unwinder __gnu_fae_unwinder_x86_64v0 + ";
+  const int unwind_offset =
+      (cur_fun_dat.used_alloca ? 5 : 6) - cur_fun_dat.regs;
   gcc_assert(unwind_offset >= 0);
   fputs(unwinder, asm_out_file);
   // x86_64 mov is 5 bytes long.
   fprint_ul(asm_out_file, unwind_offset * 5);
   fputc('\n', asm_out_file);
+
+  // Hardcoding DWARF labels is kinda bad, but I haven't seen anyone
+  // override them yet
+  /*
+  fputs("\t.fae_fsize .LFB", asm_out_file);
+  fprint_ul(asm_out_file, current_function_funcdef_no);
+  fputs(" - .LFE", asm_out_file);
+  fprint_ul(asm_out_file, current_function_funcdef_no);
+  fputc('\n', asm_out_file);*/
+  // Commenting out for now, once the proof of concept is done
+  // I'll get to this later
 
   if (!cur_fun_dat.used_alloca) {
     fputs("\t.fae_stacksize ", asm_out_file);
@@ -172,15 +185,16 @@ void emit_fae_end(int is_end) {
     fprint_ul(asm_out_file, cur_fun_dat.sp_reg);
     fputc('\n', asm_out_file);
   }
-  
+
   if (crtl->uses_eh_lsda) {
     bool is_cold = is_end && crtl->has_bb_partition;
-    fputs("\t.fae_handlerdata ", asm_out_file); 
-    assemble_name(asm_out_file, create_lsda_label(is_cold ? "FAE2lsda" : "FAElsda"));
+    fputs("\t.fae_handlerdata ", asm_out_file);
+    assemble_name(asm_out_file,
+                  create_lsda_label(is_cold ? "FAE2lsda" : "FAElsda"));
     fputc('\n', asm_out_file);
   }
 
-  fprintf(asm_out_file, "\t.fae_end\n");
+  fputs("\t.fae_end\n", asm_out_file);
 }
 
 static void assert_or_set(int expr, int &value) {
@@ -206,33 +220,15 @@ unsigned int PassFae::execute(function *f) {
   int saved_sp = 0;
   bool has_saved_stack = false;
 
-  for (rtx_insn *rtx = get_insns(); rtx; rtx = NEXT_INSN(rtx)) {
-    rtx_code code = GET_CODE(rtx);
-    // we are not interested in code body or epilogue
-    if (code == NOTE && NOTE_KIND(rtx) == NOTE_INSN_PROLOGUE_END) {
-      break;
-    } 
-
-    // only interested in instructions
-    if (code != INSN || RTX_FRAME_RELATED_P(rtx) ) {
-      continue;
-    }
-    auto *inner = PATTERN(rtx);
-
-    check_rtx(inner, regs, stack, saved_sp, has_saved_stack);
-  }
-
-  if (f->calls_alloca) {
-    gcc_assert(has_saved_stack);
-  }
-
-  
+  // todo make a macro that makes this machine specific, for now I'm hardcoding
+  // x86_64 machine struct for testing but I need to port this for arm
   cur_fun_dat.name = IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(f->decl));
-  cur_fun_dat.regs = regs;
-  cur_fun_dat.stack_usage = stack;
+  cur_fun_dat.regs = cfun->machine->frame.nregs;
+  cur_fun_dat.stack_usage = cfun->machine->frame.stack_pointer_offset;
   cur_fun_dat.num = fnum++;
+  // kind of heruistic, further research is required to see if this holds
   cur_fun_dat.used_alloca = f->calls_alloca;
-  cur_fun_dat.sp_reg = saved_sp;
+  cur_fun_dat.sp_reg = 6;
   return 0;
 }
 
@@ -256,22 +252,24 @@ void check_rtx(rtx_def *inner, int &regs, long &stack, int &saved_sp,
       // We must be saving a register to stack
       auto inner_dst = XEXP(dst, 0);
       auto inner_code = GET_CODE(inner_dst);
-      if (inner_code != PRE_MODIFY && inner_code != PRE_INC && inner_code != PRE_DEC){
+      if (inner_code != PRE_MODIFY && inner_code != PRE_INC &&
+          inner_code != PRE_DEC) {
         return;
       }
       auto ii_dst = XEXP(inner_dst, 0);
-      if(!REG_P(ii_dst) || REGNO(ii_dst) != STACK_POINTER_REGNUM){
+      if (!REG_P(ii_dst) || REGNO(ii_dst) != STACK_POINTER_REGNUM) {
         return;
       }
-      if(REG_P(src)){
+      if (REG_P(src)) {
         if (is_callee_saved(REGNO(src)))
           regs += 1;
       }
       int size = 0;
-      if(inner_code == PRE_DEC || inner_code == PRE_INC){
-        auto regmode = GET_MODE_SIZE(GET_MODE(src)); 
-        gcc_assert(regmode.is_constant(&size));      
-      }else{
+      if (inner_code == PRE_DEC || inner_code == PRE_INC) {
+        auto regmode = GET_MODE_SIZE(GET_MODE(src));
+        if (!regmode.is_constant(&size))
+          return;
+      } else {
         // must be PRE_MODIFY, which specifies size bc src may not have a size
         auto plus = XEXP(inner_dst, 1);
         gcc_assert(GET_CODE(plus) == PLUS);
@@ -279,25 +277,26 @@ void check_rtx(rtx_def *inner, int &regs, long &stack, int &saved_sp,
         gcc_assert(REG_P(lhs) && REGNO(lhs) == STACK_POINTER_REGNUM);
         auto amount = XEXP(plus, 1);
         gcc_assert(CONST_INT_P(amount));
-        size = XINT(amount, 0) * -1; // todo correct for upwards stacks 
+        size = XINT(amount, 0) * -1; // todo correct for upwards stacks
       }
       gcc_assert(size != 0);
       stack += size;
     } else {
       // we must be either incrementing the stack pointer
       // or saving it to base pointer
-      gcc_assert(GET_CODE(dst) == REG);
+      if (GET_CODE(dst) != REG)
+        return;
       // register to register transfer must be stack to base save
       if (GET_CODE(src) == REG) {
         // sometimes GCC will move registers around that aren't stack pointers
         // we don't care about those
-        if(REGNO(src) != STACK_POINTER_REGNUM)
+        if (REGNO(src) != STACK_POINTER_REGNUM)
           return;
         has_saved_stack = true;
         saved_sp = REGNO(XEXP(inner, 0));
         regs -= 1;
       } else {
-        if(REGNO(dst) != STACK_POINTER_REGNUM)
+        if (REGNO(dst) != STACK_POINTER_REGNUM)
           return;
 
         gcc_assert(GET_CODE(src) == PLUS);
@@ -358,7 +357,7 @@ void emit_fae_lsda(int section) {
 
 void emit_header(int regions, const char *ttypes) {
   ASM_OUTPUT_LABEL(asm_out_file, cur_fun_dat.lsda_label);
-  fputs("\t.quad __fae_cpp_personality1\n", asm_out_file); 
+  fputs("\t.quad __fae_cpp_personality1\n", asm_out_file);
   fputs("\t.word ", asm_out_file);
   fprint_ul(asm_out_file, regions);
   fputc('\n', asm_out_file);
@@ -452,20 +451,20 @@ void emit_action_records(int regions, int section, int base) {
   }
 
   int action_check_num = 0;
-  if(regions)
-  for (auto &check : action_checks) {
-    char action_label[32] = {};
-    gcc_assert(base < 1000);
-    ASM_GENERATE_INTERNAL_LABEL(action_label, "FAEaction_record",
-                                action_check_num * 1000 + base);
-    ASM_OUTPUT_LABEL(asm_out_file, action_label);
-    ++action_check_num;
-    for (auto filter : check) {
-      fputs("\t.byte ", asm_out_file);
-      fprint_ul(asm_out_file, filter);
-      fputc('\n', asm_out_file);
+  if (regions)
+    for (auto &check : action_checks) {
+      char action_label[32] = {};
+      gcc_assert(base < 1000);
+      ASM_GENERATE_INTERNAL_LABEL(action_label, "FAEaction_record",
+                                  action_check_num * 1000 + base);
+      ASM_OUTPUT_LABEL(asm_out_file, action_label);
+      ++action_check_num;
+      for (auto filter : check) {
+        fputs("\t.byte ", asm_out_file);
+        fprint_ul(asm_out_file, filter);
+        fputc('\n', asm_out_file);
+      }
     }
-  }
 }
 
 typedef signed long long _sleb128_t;

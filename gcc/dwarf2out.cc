@@ -177,8 +177,11 @@ static GTY(()) section *debug_ranges_section;
 static GTY(()) section *debug_ranges_dwo_section;
 static GTY(()) section *debug_frame_section;
 
-#ifdef CONFIG_FAE_EXCEPTIONS
-#error this is working
+#ifndef CONFIG_FAE_EXCEPTIONS
+// FAE_TODO: Remove this, this is just a test for a
+// compiletime macro to remove fae exceptions. Probably
+// for upstreaming to disable fae exceptions unless enabled
+#error this is not working
 #endif
 
 /* Maximum size (in bytes) of an artificially generated label.  */
@@ -1042,7 +1045,7 @@ dwarf2out_do_cfi_startproc (bool second)
       output_addr_const (asm_out_file, ref);
       fputc ('\n', asm_out_file);
     }
-    emit_fae_start();
+    emit_fae_start(second);
 }
 
 /* Allocate CURRENT_FDE.  Immediately initialize all we can, noting that
