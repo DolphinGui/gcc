@@ -8,13 +8,18 @@
 .globl __gnu_fae_unwinder_x86_64_dynv0
 .type __gnu_fae_unwinder_x86_64_dynv0,@function
 
- __gnu_fae_unwinder_x86_64_dynv0:
-  movq 48(%rsp), %r15
-  movq 40(%rsp), %r14
-  movq 32(%rsp), %r13
-  movq 24(%rsp), %r12
-  movq  8(%rsp), %rbx
-  pop %rbp
+__gnu_fae_unwinder_x86_64_dynv0:
+  leaq (,%rdi,4), %rax /* Multiply by -4, the size of a movq instruction */
+  negq %rax
+  addq $.unwind_start, %rax /* I don't think relative computed jumps are a thing */
+  jmp *%rax
+  movq -32(%rbp), %r15 /* get registers indexed by bp instead of sp */
+  movq -24(%rbp), %r14
+  movq -16(%rbp), %r13
+  movq -8(%rbp), %r12
+  movq  (%rbp), %rbx
+.unwind_start:
+  movq %rbp, %rsp
+  popq %rbp
   jmp __fae_finish_unwinding
-
 

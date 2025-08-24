@@ -18,8 +18,6 @@ return_values:
 
 .unknown_func:
   ud2
-.unknown_bp_reg:
-  ud2
 /*
 Currently, this only works on linux due to the reliance on the red zone when unwinding.
 To unwind, we first restore the stack pointer, then call the unwinder to load the saved
@@ -65,15 +63,13 @@ _Unwind_Resume:
   movq return_values(%rip), %rsp
 .no_lp:
   movq (%rdx), %rcx /* Load stack */
-  movq 8(%rdx), %rsi /* Load unwinder pointer */
+  movq 8(%rdx), %rdi /* Load registers to unwind */
+  movq 16(%rdx), %rsi /* Load unwinder pointer */
   testq %rcx, %rcx
   js .dynamic_stack
   addq %rcx, %rsp
   jmp *%rsi
 .dynamic_stack:
-  cmpq $6, %rcx /* For now we only support rbp as our base pointer */
-  jne .unknown_bp_reg
-  movq %rbp, %rsp
   jmp *%rsi
 
   
