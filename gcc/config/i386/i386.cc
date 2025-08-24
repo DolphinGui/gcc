@@ -6787,6 +6787,25 @@ ix86_nsaved_sseregs (void)
   return nregs;
 }
 
+int
+ix86_nsaved_saved_regs (void)
+{
+  int nregs = 0;
+  int regno;
+
+  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
+    if (GENERAL_REGNO_P (regno) && ix86_save_reg (regno, true, true))
+      nregs ++;
+  return nregs;
+}
+
+int
+ix86_stack_usage (void)
+{
+  ix86_frame& f = cfun->machine->frame;
+  return  f.stack_pointer_offset - f.sse_reg_save_offset;
+}
+
 /* Given FROM and TO register numbers, say whether this elimination is
    allowed.  If stack alignment is needed, we can only replace argument
    pointer with hard frame pointer, or replace frame pointer with stack

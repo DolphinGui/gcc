@@ -2125,7 +2125,6 @@ extern unsigned int const svr4_debugger_register_map[FIRST_PSEUDO_REGISTER];
 
 /* PC is dbx register 8; let's use that column for RA.  */
 #define DWARF_FRAME_RETURN_COLUMN 	(TARGET_64BIT ? 16 : 8)
-
 /* Before the prologue, there are return address and error code for
    exception handler on the top of the frame.  */
 #define INCOMING_FRAME_SP_OFFSET \
@@ -2140,6 +2139,13 @@ extern unsigned int const svr4_debugger_register_map[FIRST_PSEUDO_REGISTER];
 #define EH_RETURN_DATA_REGNO(N)	((N) <= DX_REG ? (N) : INVALID_REGNUM)
 #define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, CX_REG)
 
+/* This is almost certainly the wrong way to do it, but I don't know
+ * where the functions are supposed to be declared*/
+int ix86_nsaved_saved_regs (void);
+int ix86_stack_usage (void);
+/* Various macros used to get the necessary unwind data for functions */
+#define UNWIND_REGISTERS_SAVED ix86_nsaved_saved_regs ()
+#define UNWIND_STACK_USED ix86_stack_usage ()
 
 /* Select a format to encode pointers in exception handling data.  CODE
    is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is

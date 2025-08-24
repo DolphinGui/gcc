@@ -139,15 +139,16 @@ struct GTY(()) PassFae final : rtl_opt_pass {
 rtl_opt_pass *make_pass_faegen(gcc::context *ct) { return new PassFae(ct); }
 
 void emit_fae_start(bool) {
-  gcc_assert(asm_out_file);
-  gcc_assert(cur_fun_dat.name != NULL);
+  if(TREE_NOTHROW(current_function_decl))
+    return;
   fprintf(asm_out_file, "\t.fae_start\n");
 }
 
 /* Currently this does not correctly parse cold/hot sections, so
 any exceptions thrown in destructors or such won't work*/
 void emit_fae_end(bool is_end) {
-  gcc_assert(asm_out_file);
+  if(TREE_NOTHROW(current_function_decl))
+    return;
   if (cur_fun_dat.used_alloca)
     gcc_assert(cur_fun_dat.regs <= 5);
   else
@@ -155,14 +156,10 @@ void emit_fae_end(bool is_end) {
 
   const char *unwinder =
       cur_fun_dat.used_alloca
-          ? "\t.fae_unwinder __gnu_fae_unwinder_x86_64_dynv0 + "
-          : "\t.fae_unwinder __gnu_fae_unwinder_x86_64v0 + ";
-  const int unwind_offset =
-      (cur_fun_dat.used_alloca ? 5 : 6) - cur_fun_dat.regs;
-  gcc_assert(unwind_offset >= 0);
+          ? "\t.fae_unwinder __gnu_fae_unwinder_x86_64_dynv0, "
+          : "\t.fae_unwinder __gnu_fae_unwinder_x86_64v0, ";
   fputs(unwinder, asm_out_file);
-  // x86_64 mov is 5 bytes long.
-  fprint_ul(asm_out_file, unwind_offset * 5);
+  fprint_ul(asm_out_file, cur_fun_dat.regs);
   fputc('\n', asm_out_file);
 
   // Hardcoding DWARF labels is kinda bad, but I haven't seen anyone
@@ -206,8 +203,6 @@ static void assert_or_set(int expr, int &value) {
 }
 
 static bool is_callee_saved(int regno);
-static void check_rtx(rtx_def *inner, int &regs, long &stack, int &saved_sp,
-                      bool &has_saved_stack);
 
 static const char *format(rtx_code r);
 // todo use machine_frame info instead of stupid parsing
@@ -223,11 +218,10 @@ unsigned int PassFae::execute(function *f) {
   // todo make a macro that makes this machine specific, for now I'm hardcoding
   // x86_64 machine struct for testing but I need to port this for arm
   cur_fun_dat.name = IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(f->decl));
-  cur_fun_dat.regs = cfun->machine->frame.nregs;
-  cur_fun_dat.stack_usage = cfun->machine->frame.stack_pointer_offset;
+  cur_fun_dat.regs = UNWIND_REGISTERS_SAVED;
+  cur_fun_dat.stack_usage = UNWIND_STACK_USED;
   cur_fun_dat.num = fnum++;
-  // kind of heruistic, further research is required to see if this holds
-  cur_fun_dat.used_alloca = f->calls_alloca;
+  cur_fun_dat.used_alloca = frame_pointer_needed;
   cur_fun_dat.sp_reg = 6;
   return 0;
 }
@@ -239,82 +233,6 @@ bool is_callee_saved(int regno) {
       return true;
   }
   return false;
-}
-
-int reg_length = 0;
-void check_rtx(rtx_def *inner, int &regs, long &stack, int &saved_sp,
-               bool &has_saved_stack) {
-  auto in_code = GET_CODE(inner);
-  if (in_code == SET) {
-    auto dst = XEXP(inner, 0);
-    auto src = XEXP(inner, 1);
-    if (MEM_P(dst)) {
-      // We must be saving a register to stack
-      auto inner_dst = XEXP(dst, 0);
-      auto inner_code = GET_CODE(inner_dst);
-      if (inner_code != PRE_MODIFY && inner_code != PRE_INC &&
-          inner_code != PRE_DEC) {
-        return;
-      }
-      auto ii_dst = XEXP(inner_dst, 0);
-      if (!REG_P(ii_dst) || REGNO(ii_dst) != STACK_POINTER_REGNUM) {
-        return;
-      }
-      if (REG_P(src)) {
-        if (is_callee_saved(REGNO(src)))
-          regs += 1;
-      }
-      int size = 0;
-      if (inner_code == PRE_DEC || inner_code == PRE_INC) {
-        auto regmode = GET_MODE_SIZE(GET_MODE(src));
-        if (!regmode.is_constant(&size))
-          return;
-      } else {
-        // must be PRE_MODIFY, which specifies size bc src may not have a size
-        auto plus = XEXP(inner_dst, 1);
-        gcc_assert(GET_CODE(plus) == PLUS);
-        auto lhs = XEXP(plus, 0);
-        gcc_assert(REG_P(lhs) && REGNO(lhs) == STACK_POINTER_REGNUM);
-        auto amount = XEXP(plus, 1);
-        gcc_assert(CONST_INT_P(amount));
-        size = XINT(amount, 0) * -1; // todo correct for upwards stacks
-      }
-      gcc_assert(size != 0);
-      stack += size;
-    } else {
-      // we must be either incrementing the stack pointer
-      // or saving it to base pointer
-      if (GET_CODE(dst) != REG)
-        return;
-      // register to register transfer must be stack to base save
-      if (GET_CODE(src) == REG) {
-        // sometimes GCC will move registers around that aren't stack pointers
-        // we don't care about those
-        if (REGNO(src) != STACK_POINTER_REGNUM)
-          return;
-        has_saved_stack = true;
-        saved_sp = REGNO(XEXP(inner, 0));
-        regs -= 1;
-      } else {
-        if (REGNO(dst) != STACK_POINTER_REGNUM)
-          return;
-
-        gcc_assert(GET_CODE(src) == PLUS);
-        auto first_op = XEXP(src, 0);
-        gcc_assert(GET_CODE(first_op) == REG &&
-                   REGNO(first_op) == STACK_POINTER_REGNUM);
-        auto second_op = XEXP(src, 1);
-        gcc_assert(GET_CODE(second_op) == CONST_INT);
-        stack += -1 * XWINT(second_op, 0);
-      }
-    }
-  } else if (in_code == PARALLEL) {
-    // parse PARALLEL recursively since sometimes push clobber registers
-    int len = XVECLEN(inner, 0);
-    for (int i = 0; i < len; ++i) {
-      check_rtx(XVECEXP(inner, 0, i), regs, stack, saved_sp, has_saved_stack);
-    }
-  }
 }
 
 bool PassFae::gate(function *) {

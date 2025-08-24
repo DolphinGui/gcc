@@ -610,6 +610,7 @@ default_function_section (tree decl, enum node_frequency freq,
   if (!flag_reorder_functions
       || !targetm_common.have_named_sections)
     return NULL;
+  const char* uw = TREE_NOTHROW(decl) ? "" : ".uw";
   /* Startup code should go to startup subsection unless it is
      unlikely executed (this happens especially with function splitting
      where we can split away unnecessary parts of static constructors.  */
@@ -621,23 +622,23 @@ default_function_section (tree decl, enum node_frequency freq,
        startup only.  */
     if (!in_lto_p
         || !cgraph_node::get (decl)->tp_first_run
-	|| !opt_for_fn (decl, flag_profile_reorder_functions))
-      return get_named_text_section (decl, ".text.startup", NULL);
+	|| !opt_for_fn (decl, flag_profile_reorder_functions)){
+      return get_named_text_section (decl, ACONCAT((".text", uw, ".startup", NULL)), NULL);}
     else
       return NULL;
   }
 
   /* Similarly for exit.  */
   if (exit && freq != NODE_FREQUENCY_UNLIKELY_EXECUTED)
-    return get_named_text_section (decl, ".text.exit", NULL);
+    return get_named_text_section (decl, ACONCAT((".text", uw, ".exit", NULL)), NULL);
 
   /* Group cold functions together, similarly for hot code.  */
   switch (freq)
     {
       case NODE_FREQUENCY_UNLIKELY_EXECUTED:
-	return get_named_text_section (decl, ".text.unlikely", NULL);
+	return get_named_text_section (decl, ACONCAT((".text", uw, ".unlikely", NULL)), NULL);
       case NODE_FREQUENCY_HOT:
-        return get_named_text_section (decl, ".text.hot", NULL);
+        return get_named_text_section (decl, ACONCAT((".text", uw, ".hot", NULL)), NULL);
 	/* FALLTHRU */
       default:
 	return NULL;
@@ -7574,8 +7575,7 @@ default_unique_section (tree decl, int reloc)
       gcc_unreachable ();
     }
 
-    fprintf(stderr, "nothrow of %s: %d\n", DECL_ASSEMBLER_NAME (decl), TREE_NOTHROW(decl));
-    unwindable = TREE_NOTHROW(decl) ? ".nothrow" : "";
+    unwindable = TREE_NOTHROW(decl) ? "" : ".uw";
 
 
   id = DECL_ASSEMBLER_NAME (decl);

@@ -10,11 +10,12 @@ extern "C" {
 typedef unsigned short u16;
 
 typedef struct {
-  void* personality;
-}lsda_head;
+  void *personality;
+} lsda_head;
 
 typedef struct {
   unsigned long stack;
+  unsigned long registers;
   const char *unwinder;
   lsda_head *lsda;
 } fae_data_entry;
@@ -23,6 +24,10 @@ typedef struct {
   const char *begin;
   const char *end;
   fae_data_entry *data;
+} fae_unsorted_entry;
+
+typedef struct {
+  const char *begin;
 } fae_table_entry;
 
 typedef struct {
@@ -32,20 +37,23 @@ typedef struct {
 } personality_result;
 
 typedef struct {
-  fae_data_entry *result;
-  const char* lp;
+  const fae_data_entry *result;
+  const char *lp;
   unsigned lp_arg;
   unsigned _reserved;
 } find_ptr_result;
 
-/* The personality function signature. The first thing in the LSDA section. Shouldn't be null. */ 
-typedef personality_result (personality_fn)(unsigned long pc_offset, void *lsda, void *exception);
+/* The personality function signature. The first thing in the LSDA section.
+ * Shouldn't be null. */
+typedef personality_result(personality_fn)(unsigned long pc_offset, void *lsda,
+                                           void *exception);
 
-void __fae_get_ptr(find_ptr_result* out, struct _Unwind_Exception *except, const char *pc);
+__attribute__((nothrow)) void __fae_get_ptr(find_ptr_result *out,
+                                            struct _Unwind_Exception *except,
+                                            const char *pc);
 
 #ifdef __cplusplus
 }
 #endif
-
 
 #endif
