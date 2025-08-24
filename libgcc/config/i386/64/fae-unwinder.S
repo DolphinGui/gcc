@@ -20,6 +20,7 @@ __gnu_fae_unwinder_x86_64v0:
   movq 16(%rsp), %r12
   movq 8(%rsp), %rbp
   movq  (%rsp), %rbx
+  nop
 .unwind_start:
   leaq  0(,%rdi,8), %rax
   addq %rax, %rsp
