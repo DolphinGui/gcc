@@ -819,18 +819,19 @@ __gxx_personality_seh0 (PEXCEPTION_RECORD ms_exc, void *this_frame,
 
 #include "unwind-fae-sup.h"
 
+/*
 struct lsda_region {
   u16 begin_offset; // The beginning of the region, offset from function start
   u16 end_offset;   // The end of the region, offset from function start
   u16 lp_offset;    // The landing pad, offset from function start
   u16 action;       // The action sequence, offset from lsda label
 };
+*/
 
 struct lsda_entry {
   unsigned long ident;
   u16 region_count; /* The number of regions there are */
   u16 ttype_offset; /* The start of ttype offset by lsda */
-  lsda_region regions[];
 };
 
 static void *get_adjusted_ptr(void *exc, const std::type_info *catch_type) noexcept;
@@ -839,20 +840,26 @@ extern "C" personality_result __fae_cpp_personality1(unsigned long pc_offset, vo
                                         void *exception){
   personality_result r = {};
   const lsda_entry* lsda = static_cast<const lsda_entry*>(l);
-  const char* action_base = static_cast<const char*>(l);
-  const unsigned* ttypes = reinterpret_cast<const unsigned*>(action_base + lsda->ttype_offset);
+  unsigned char* action_base = static_cast<unsigned char*>(l);
+  unsigned* ttypes = reinterpret_cast<unsigned*>(action_base + lsda->ttype_offset);
+  const unsigned char* p = action_base + 12;
   for(int i = 0; i < lsda->region_count; ++i){
-    const lsda_region* region = lsda->regions + i;
-    if(region->begin_offset < pc_offset && pc_offset <= region->end_offset){
-      r.lp = region->lp_offset;
-      if(region->action == 0) // No actions, must be cleanup
+    _uleb128_t start, end, lp, ac;
+    p = read_uleb128(p, &start);
+    p = read_uleb128(p, &end);
+    p = read_uleb128(p, &lp);
+    p = read_uleb128(p, &ac);
+    if(start < pc_offset && pc_offset <= end){
+      r.lp = lp;
+      if(ac == 0) // No actions, must be cleanup
         return r;
       unsigned action_index = 1;
-      for(const char* action = action_base + region->action; *action != 0; ++action){
-        char act = *action;
+      for(unsigned char* action = action_base + ac; *action != 0; ++action){
+        unsigned char act = *action;
         if(act == 0)
           break; // catch all or cleanup, matches everything
-        const std::type_info* ttype = reinterpret_cast<const std::type_info*>(ttypes[act - 1]);
+        unsigned tt = ttypes[act - 1];
+        std::type_info* ttype = reinterpret_cast<std::type_info*>(tt);
         void* adjusted_ptr = get_adjusted_ptr(exception, ttype);
         if(adjusted_ptr)
           break;

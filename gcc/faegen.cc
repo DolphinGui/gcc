@@ -57,6 +57,15 @@ static void output_delta(const char *a, const char *b) {
   fputc('\n', asm_out_file);
 }
 
+static void output_delta_uleb(const char *a, const char *b) {
+  fprintf(asm_out_file, "\t.uleb128 ");
+  assemble_name(asm_out_file, a);
+  fprintf(asm_out_file, " - ");
+  assemble_name(asm_out_file, b);
+  fputc('\n', asm_out_file);
+}
+
+
 static const char *create_lsda_label(const char *prefix) {
   char label[32] = {};
   ASM_GENERATE_INTERNAL_LABEL(label, prefix, cfun->funcdef_no);
@@ -194,26 +203,10 @@ void emit_fae_end(bool is_end) {
   fputs("\t.fae_end\n", asm_out_file);
 }
 
-static void assert_or_set(int expr, int &value) {
-  if (value == 0) {
-    value = expr;
-  } else {
-    gcc_assert(value == expr);
-  }
-}
-
-static bool is_callee_saved(int regno);
-
-static const char *format(rtx_code r);
 // todo use machine_frame info instead of stupid parsing
 // also need to handle floating point stack seperately
 unsigned int PassFae::execute(function *f) {
   gcc_assert(DECL_ASSEMBLER_NAME_SET_P(f->decl));
-
-  long stack = 0;
-  int regs = 0;
-  int saved_sp = 0;
-  bool has_saved_stack = false;
 
   // todo make a macro that makes this machine specific, for now I'm hardcoding
   // x86_64 machine struct for testing but I need to port this for arm
@@ -224,15 +217,6 @@ unsigned int PassFae::execute(function *f) {
   cur_fun_dat.used_alloca = frame_pointer_needed;
   cur_fun_dat.sp_reg = 6;
   return 0;
-}
-
-bool is_callee_saved(int regno) {
-  int regs[] = {3, 6, 40, 41, 42, 43};
-  for (int i = 0; i < 6; ++i) {
-    if (regno == regs[i])
-      return true;
-  }
-  return false;
 }
 
 bool PassFae::gate(function *) {
@@ -293,9 +277,6 @@ void switch_to_fae_lsda_section(const char *fnname) {
                  : SECTION_WRITE);
   }
 
-  // targetm_common.have_named_sections; assert this later, for some reason
-  // can't access
-
 #ifdef HAVE_LD_EH_GC_SECTIONS
   if (flag_function_sections ||
       (DECL_COMDAT_GROUP(current_function_decl) && HAVE_COMDAT_GROUP)) {
@@ -332,12 +313,12 @@ void emit_regions(int regions, int section, int base) {
       ASM_GENERATE_INTERNAL_LABEL(landing_pad, "L",
                                   CODE_LABEL_NUMBER(callsite.landing_pad));
 
-    output_delta(start, func_begin);
-    output_delta(end, func_begin);
+    output_delta_uleb(start, func_begin);
+    output_delta_uleb(end, func_begin);
     if (callsite.landing_pad)
-      output_delta(landing_pad, func_begin);
+      output_delta_uleb(landing_pad, func_begin);
     else
-      fputs("\t.word 0\n", asm_out_file);
+      fputs("\t.uleb128 0\n", asm_out_file);
 
     if (callsite.action != 0) {
       char action_label[32] = {};
@@ -345,10 +326,10 @@ void emit_regions(int regions, int section, int base) {
       ASM_GENERATE_INTERNAL_LABEL(action_label, "FAEaction_record",
                                   action_check_num * 1000 + base);
 
-      output_delta(action_label, cur_fun_dat.lsda_label);
+      output_delta_uleb(action_label, cur_fun_dat.lsda_label);
       action_check_num += 1;
     } else {
-      fputs("\t.word 0\n", asm_out_file);
+      fputs("\t.uleb128 0\n", asm_out_file);
     }
   }
 }
